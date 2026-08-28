@@ -34,10 +34,11 @@ function calculateStreak(journalList) {
   );
 
   let streak = 0;
-  let today = new Date().toDateString();
-  let yesterday = new Date(Date.now() - 86400000).toDateString();
 
   // Cek apakah ada jurnal hari ini atau kemarin
+  const today = new Date().toDateString();
+  const yesterday = new Date(Date.now() - 86400000).toDateString();
+
   if (!uniqueDates.includes(today) && !uniqueDates.includes(yesterday)) {
     return 0;
   }
@@ -178,11 +179,15 @@ function App() {
     window.print();
   };
 
+  // Logika Filter yang Diperbaiki dengan .trim()
   const filteredJournals = journalList.filter((entry) => {
-    const matchesSearch = 
-      (entry.gratitude && entry.gratitude.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (entry.brain_dump && entry.brain_dump.toLowerCase().includes(searchTerm.toLowerCase()));
-    
+    const cleanSearch = searchTerm.trim().toLowerCase();
+
+    const matchesSearch =
+      !cleanSearch ||
+      (entry.gratitude && entry.gratitude.toLowerCase().includes(cleanSearch)) ||
+      (entry.brain_dump && entry.brain_dump.toLowerCase().includes(cleanSearch));
+
     const matchesMood = filterMood === 'all' || entry.mood === filterMood;
 
     return matchesSearch && matchesMood;
@@ -194,7 +199,7 @@ function App() {
   return (
     <div style={{ minHeight: '100vh', background: theme.bg, color: theme.text, transition: 'all 0.3s ease', fontFamily: "'Plus Jakarta Sans', sans-serif", paddingBottom: '80px' }}>
       
-      {/* UBAH MAX-WIDTH DARI 500px MENJADI 900px SUPAYA PAS DI LAPTOP */}
+      {/* Container Utama Diperlebar ke 900px untuk Laptop, Tetap Responsif di HP */}
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px 16px' }}>
         
         {/* HEADER */}
@@ -219,9 +224,11 @@ function App() {
           </div>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* STREAK BADGE HEADER */}
             <div style={{ background: theme.cardBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '20px', padding: '6px 12px', fontSize: '12px', fontWeight: 700, color: '#FF7043' }}>
               🔥 {currentStreak} Hari
             </div>
+            
             <button
               onClick={() => setDarkMode(!darkMode)}
               style={{
