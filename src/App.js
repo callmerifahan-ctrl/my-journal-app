@@ -193,12 +193,13 @@ function App() {
 
   return (
     <div style={{ minHeight: '100vh', background: theme.bg, color: theme.text, transition: 'all 0.3s ease', fontFamily: "'Plus Jakarta Sans', sans-serif", paddingBottom: '80px' }}>
-      <div style={{ maxWidth: '500px', margin: '0 auto', padding: '24px 16px' }}>
+      
+      {/* UBAH MAX-WIDTH DARI 500px MENJADI 900px SUPAYA PAS DI LAPTOP */}
+      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px 16px' }}>
         
         {/* HEADER */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {/* Ikon Logo */}
             <div style={{
               width: '42px', height: '42px', borderRadius: '12px',
               background: 'linear-gradient(135deg, #9D84B7, #7A5C9E)',
@@ -207,8 +208,6 @@ function App() {
             }}>
               🌸
             </div>
-
-            {/* Judul & Subtitle */}
             <div>
               <h1 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: theme.text }}>
                 Pikiran Berbicara
@@ -220,11 +219,9 @@ function App() {
           </div>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {/* STREAK BADGE HEADER */}
             <div style={{ background: theme.cardBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '20px', padding: '6px 12px', fontSize: '12px', fontWeight: 700, color: '#FF7043' }}>
               🔥 {currentStreak} Hari
             </div>
-            
             <button
               onClick={() => setDarkMode(!darkMode)}
               style={{
