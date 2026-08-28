@@ -197,9 +197,26 @@ function App() {
         
         {/* HEADER */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <div>
-            <h1 style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>My Journal 🌸</h1>
-            <p style={{ fontSize: '12px', color: theme.subtext, margin: '2px 0 0' }}>Cloud Connected ☁️</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {/* Ikon Logo */}
+            <div style={{
+              width: '42px', height: '42px', borderRadius: '12px',
+              background: 'linear-gradient(135deg, #9D84B7, #7A5C9E)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '22px', boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+            }}>
+              🌸
+            </div>
+
+            {/* Judul & Subtitle */}
+            <div>
+              <h1 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: theme.text }}>
+                Pikiran Berbicara
+              </h1>
+              <p style={{ fontSize: '11px', color: theme.subtext, margin: '2px 0 0' }}>
+                Cloud Connected ☁️
+              </p>
+            </div>
           </div>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
