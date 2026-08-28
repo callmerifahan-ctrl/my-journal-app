@@ -3,6 +3,8 @@ import { supabase } from './supabaseClient';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
 import AudioRecorder from './AudioRecorder';
 import SpeechToText from './SpeechToText';
+import Auth from './Auth';
+import CalendarView from './CalendarView';
 
 const moodConfig = {
   '😊': { label: 'Senang', color: '#FFD97D', bg: '#FFF9E6' },
@@ -14,9 +16,7 @@ const moodConfig = {
 function getMoodSummaryData(journalList) {
   const counts = { '😊': 0, '😐': 0, '😫': 0, '😴': 0 };
   journalList.forEach((entry) => {
-    if (counts[entry.mood] !== undefined) {
-      counts[entry.mood]++;
-    }
+    if (counts[entry.mood] !== undefined) counts[entry.mood]++;
   });
   return Object.keys(counts).map((emoji) => ({
     mood: `${emoji} ${moodConfig[emoji].label}`,
@@ -24,37 +24,24 @@ function getMoodSummaryData(journalList) {
   }));
 }
 
-// Fungsi Menghitung Daily Streak
 function calculateStreak(journalList) {
   if (journalList.length === 0) return 0;
-  
-  // Ambil tanggal unik dari daftar jurnal
-  const uniqueDates = Array.from(
-    new Set(journalList.map(entry => new Date(entry.id).toDateString()))
-  );
-
+  const uniqueDates = Array.from(new Set(journalList.map(entry => new Date(entry.id).toDateString())));
   let streak = 0;
-
-  // Cek apakah ada jurnal hari ini atau kemarin
   const today = new Date().toDateString();
   const yesterday = new Date(Date.now() - 86400000).toDateString();
-
-  if (!uniqueDates.includes(today) && !uniqueDates.includes(yesterday)) {
-    return 0;
-  }
+  if (!uniqueDates.includes(today) && !uniqueDates.includes(yesterday)) return 0;
 
   for (let i = 0; i < uniqueDates.length; i++) {
     const checkDate = new Date(Date.now() - (i * 86400000)).toDateString();
-    if (uniqueDates.includes(checkDate)) {
-      streak++;
-    } else {
-      break;
-    }
+    if (uniqueDates.includes(checkDate)) streak++;
+    else break;
   }
   return streak;
 }
 
 function App() {
+  const [session, setSession] = useState(null);
   const [audioBlob, setAudioBlob] = useState(null);
   const [activeTab, setActiveTab] = useState('write');
   const [selectedMood, setSelectedMood] = useState('');
@@ -63,7 +50,6 @@ function App() {
   const [journalList, setJournalList] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Search & Filter State
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMood, setFilterMood] = useState('all');
 
@@ -72,35 +58,46 @@ function App() {
     return saved ? JSON.parse(saved) : false;
   });
 
+  const theme = darkMode
+    ? { bg: '#14121E', cardBg: '#1E1B2E', cardBorder: '#2D2842', text: '#F3EFEF', subtext: '#A39BB9', inputBg: '#181524', inputBorder: '#2D2842', accent: '#9D84B7' }
+    : { bg: '#F8F6FC', cardBg: '#FFFFFF', cardBorder: '#EFEAF8', text: '#2D2738', subtext: '#8C829E', inputBg: '#FAFAFD', inputBorder: '#E4DCF3', accent: '#9D84B7' };
+
+  // Sesi Login Supabase
   useEffect(() => {
-    fetchJournals();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const fetchJournals = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('journals')
-      .select('*')
-      .order('id', { ascending: false });
+  // Ambil jurnal milik pengguna yang sedang login (Warning ESLint Fixed)
+  useEffect(() => {
+    const fetchJournals = async () => {
+      if (!session?.user) return;
+      
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('journals')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('id', { ascending: false });
 
-    if (error) console.error('Error fetching data:', error);
-    else setJournalList(data || []);
-    setLoading(false);
-  };
+      if (error) console.error('Error fetching data:', error);
+      else setJournalList(data || []);
+      setLoading(false);
+    };
+
+    fetchJournals();
+  }, [session]);
 
   useEffect(() => {
     localStorage.setItem('journal_dark_mode', JSON.stringify(darkMode));
   }, [darkMode]);
-
-  const theme = darkMode
-    ? {
-        bg: '#14121E', cardBg: '#1E1B2E', cardBorder: '#2D2842', text: '#F3EFEF',
-        subtext: '#A39BB9', inputBg: '#181524', inputBorder: '#2D2842', accent: '#9D84B7'
-      }
-    : {
-        bg: '#F8F6FC', cardBg: '#FFFFFF', cardBorder: '#EFEAF8', text: '#2D2738',
-        subtext: '#8C829E', inputBg: '#FAFAFD', inputBorder: '#E4DCF3', accent: '#9D84B7'
-      };
 
   const handleSave = async () => {
     if (!selectedMood && !gratitude && !brainDump && !audioBlob) {
@@ -109,27 +106,20 @@ function App() {
     }
 
     let uploadedAudioUrl = null;
-
     if (audioBlob) {
-      const fileName = `audio_${Date.now()}.webm`;
-      const { error: storageError } = await supabase.storage
-        .from('journal-audios')
-        .upload(fileName, audioBlob, { contentType: 'audio/webm' });
-
+      const fileName = `${session.user.id}/audio_${Date.now()}.webm`;
+      const { error: storageError } = await supabase.storage.from('journal-audios').upload(fileName, audioBlob, { contentType: 'audio/webm' });
       if (storageError) {
         alert('Gagal mengunggah audio: ' + storageError.message);
         return;
       }
-
-      const { data: publicUrlData } = supabase.storage
-        .from('journal-audios')
-        .getPublicUrl(fileName);
-
+      const { data: publicUrlData } = supabase.storage.from('journal-audios').getPublicUrl(fileName);
       uploadedAudioUrl = publicUrlData.publicUrl;
     }
 
     const newEntry = {
       id: Date.now(),
+      user_id: session.user.id,
       date: new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
       time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
       mood: selectedMood,
@@ -139,7 +129,6 @@ function App() {
     };
 
     const { error } = await supabase.from('journals').insert([newEntry]);
-
     if (error) {
       alert('Gagal menyimpan ke cloud: ' + error.message);
     } else {
@@ -155,113 +144,61 @@ function App() {
   const handleDelete = async (id) => {
     if (window.confirm('Hapus jurnal ini?')) {
       const { error } = await supabase.from('journals').delete().eq('id', id);
-      if (error) {
-        alert('Gagal menghapus: ' + error.message);
-      } else {
-        setJournalList(journalList.filter((entry) => entry.id !== id));
-      }
+      if (error) alert('Gagal menghapus: ' + error.message);
+      else setJournalList(journalList.filter((entry) => entry.id !== id));
     }
   };
 
-  // Fungsi Export Data ke File JSON
-  const exportToJson = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(journalList, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `journal_backup_${Date.now()}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setJournalList([]);
   };
 
-  // Fungsi Cetak / Download PDF
-  const exportToPdf = () => {
-    window.print();
-  };
-
-  // Logika Filter yang Diperbaiki dengan .trim()
   const filteredJournals = journalList.filter((entry) => {
     const cleanSearch = searchTerm.trim().toLowerCase();
-
-    const matchesSearch =
-      !cleanSearch ||
-      (entry.gratitude && entry.gratitude.toLowerCase().includes(cleanSearch)) ||
-      (entry.brain_dump && entry.brain_dump.toLowerCase().includes(cleanSearch));
-
+    const matchesSearch = !cleanSearch || (entry.gratitude && entry.gratitude.toLowerCase().includes(cleanSearch)) || (entry.brain_dump && entry.brain_dump.toLowerCase().includes(cleanSearch));
     const matchesMood = filterMood === 'all' || entry.mood === filterMood;
-
     return matchesSearch && matchesMood;
   });
 
-  const chartData = getMoodSummaryData(journalList);
-  const currentStreak = calculateStreak(journalList);
+  if (!session) return <Auth theme={theme} />;
 
   return (
     <div style={{ minHeight: '100vh', background: theme.bg, color: theme.text, transition: 'all 0.3s ease', fontFamily: "'Plus Jakarta Sans', sans-serif", paddingBottom: '80px' }}>
-      
-      {/* Container Utama Diperlebar ke 900px untuk Laptop, Tetap Responsif di HP */}
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px 16px' }}>
         
         {/* HEADER */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              width: '42px', height: '42px', borderRadius: '12px',
-              background: 'linear-gradient(135deg, #9D84B7, #7A5C9E)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '22px', boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
-            }}>
-              🌸
-            </div>
+            <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'linear-gradient(135deg, #9D84B7, #7A5C9E)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}>🌸</div>
             <div>
-              <h1 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: theme.text }}>
-                Pikiran Berbicara
-              </h1>
-              <p style={{ fontSize: '11px', color: theme.subtext, margin: '2px 0 0' }}>
-                Cloud Connected ☁️
-              </p>
+              <h1 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: theme.text }}>Pikiran Berbicara</h1>
+              <p style={{ fontSize: '11px', color: theme.subtext, margin: '2px 0 0' }}>{session.user.email}</p>
             </div>
           </div>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {/* STREAK BADGE HEADER */}
             <div style={{ background: theme.cardBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '20px', padding: '6px 12px', fontSize: '12px', fontWeight: 700, color: '#FF7043' }}>
-              🔥 {currentStreak} Hari
+              🔥 {calculateStreak(journalList)} Hari
             </div>
-            
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              style={{
-                border: `1px solid ${theme.cardBorder}`, background: theme.cardBg,
-                borderRadius: '50%', width: '40px', height: '40px', fontSize: '18px',
-                cursor: 'pointer', color: theme.text
-              }}
-            >
+            <button onClick={() => setDarkMode(!darkMode)} style={{ border: `1px solid ${theme.cardBorder}`, background: theme.cardBg, borderRadius: '50%', width: '38px', height: '38px', fontSize: '16px', cursor: 'pointer', color: theme.text }}>
               {darkMode ? '☀️' : '🌙'}
+            </button>
+            <button onClick={handleLogout} title="Keluar Akun" style={{ border: `1px solid ${theme.cardBorder}`, background: theme.cardBg, borderRadius: '50%', width: '38px', height: '38px', fontSize: '14px', cursor: 'pointer', color: '#E57373' }}>
+              🚪
             </button>
           </div>
         </div>
 
-        {/* NAVIGASI TAB */}
+        {/* TAB NAVIGATION */}
         <div style={{ display: 'flex', background: theme.cardBg, padding: '4px', borderRadius: '14px', border: `1px solid ${theme.cardBorder}`, marginBottom: '24px' }}>
-          <button
-            onClick={() => setActiveTab('write')}
-            style={{
-              flex: 1, padding: '10px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '13px',
-              background: activeTab === 'write' ? theme.accent : 'transparent',
-              color: activeTab === 'write' ? '#FFF' : theme.subtext
-            }}
-          >
-            ✍️ Tulis Jurnal
+          <button onClick={() => setActiveTab('write')} style={{ flex: 1, padding: '10px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '13px', background: activeTab === 'write' ? theme.accent : 'transparent', color: activeTab === 'write' ? '#FFF' : theme.subtext }}>
+            ✍️ Tulis
           </button>
-          <button
-            onClick={() => setActiveTab('history')}
-            style={{
-              flex: 1, padding: '10px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '13px',
-              background: activeTab === 'history' ? theme.accent : 'transparent',
-              color: activeTab === 'history' ? '#FFF' : theme.subtext
-            }}
-          >    
+          <button onClick={() => setActiveTab('calendar')} style={{ flex: 1, padding: '10px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '13px', background: activeTab === 'calendar' ? theme.accent : 'transparent', color: activeTab === 'calendar' ? '#FFF' : theme.subtext }}>
+            📅 Kalender
+          </button>
+          <button onClick={() => setActiveTab('history')} style={{ flex: 1, padding: '10px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '13px', background: activeTab === 'history' ? theme.accent : 'transparent', color: activeTab === 'history' ? '#FFF' : theme.subtext }}>
             📚 Riwayat ({journalList.length})
           </button>
         </div>
@@ -270,103 +207,54 @@ function App() {
         {activeTab === 'write' && (
           <div>
             <div style={{ background: theme.cardBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', padding: '18px', marginBottom: '16px' }}>
-              <label style={{ fontSize: '13px', fontWeight: 600, display: 'block', marginBottom: '12px', color: theme.subtext }}>
-                GIMANA PERASAANMU?
-              </label>
+              <label style={{ fontSize: '13px', fontWeight: 600, display: 'block', marginBottom: '12px', color: theme.subtext }}>GIMANA PERASAANMU?</label>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
-                {Object.keys(moodConfig).map((emoji) => {
-                  const isSelected = selectedMood === emoji;
-                  return (
-                    <button
-                      key={emoji}
-                      onClick={() => setSelectedMood(emoji)}
-                      style={{
-                        padding: '12px 0', borderRadius: '12px',
-                        border: isSelected ? `2px solid ${theme.accent}` : `1px solid ${theme.inputBorder}`,
-                        background: isSelected ? moodConfig[emoji].bg : theme.inputBg,
-                        cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px'
-                      }}
-                    >
-                      <span style={{ fontSize: '26px' }}>{emoji}</span>
-                      <span style={{ fontSize: '11px', fontWeight: isSelected ? 700 : 500, color: isSelected ? '#333' : theme.subtext }}>
-                        {moodConfig[emoji].label}
-                      </span>
-                    </button>
-                  );
-                })}
+                {Object.keys(moodConfig).map((emoji) => (
+                  <button key={emoji} onClick={() => setSelectedMood(emoji)} style={{ padding: '12px 0', borderRadius: '12px', border: selectedMood === emoji ? `2px solid ${theme.accent}` : `1px solid ${theme.inputBorder}`, background: selectedMood === emoji ? moodConfig[emoji].bg : theme.inputBg, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ fontSize: '26px' }}>{emoji}</span>
+                    <span style={{ fontSize: '11px', fontWeight: selectedMood === emoji ? 700 : 500, color: selectedMood === emoji ? '#333' : theme.subtext }}>{moodConfig[emoji].label}</span>
+                  </button>
+                ))}
               </div>
             </div>
 
             <div style={{ background: theme.cardBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', padding: '18px', marginBottom: '16px' }}>
-              <label style={{ fontSize: '13px', fontWeight: 600, display: 'block', color: theme.subtext }}>
-                LATIHAN PUBLIC SPEAKING / AUDIO 🎙️
-              </label>
-              <AudioRecorder 
-                theme={theme} 
-                onRecordingComplete={(blob) => {
-                  setAudioBlob(blob);
-                }} 
-              />
+              <label style={{ fontSize: '13px', fontWeight: 600, display: 'block', color: theme.subtext }}>LATIHAN PUBLIC SPEAKING / AUDIO 🎙️</label>
+              <AudioRecorder theme={theme} onRecordingComplete={(blob) => setAudioBlob(blob)} />
             </div>
 
             <div style={{ background: theme.cardBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', padding: '18px', marginBottom: '16px' }}>
-              <label style={{ fontSize: '13px', fontWeight: 600, display: 'block', marginBottom: '8px', color: theme.subtext }}>
-                HAL YANG DISYUKURI 🌿
-              </label>
-              <input
-                type="text" value={gratitude} onChange={(e) => setGratitude(e.target.value)}
-                placeholder="Hal kecil/besar yang bikin tersenyum..."
-                style={{ width: '100%', padding: '12px', borderRadius: '10px', border: `1px solid ${theme.inputBorder}`, background: theme.inputBg, color: theme.text, fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
-              />
+              <label style={{ fontSize: '13px', fontWeight: 600, display: 'block', marginBottom: '8px', color: theme.subtext }}>HAL YANG DISYUKURI 🌿</label>
+              <input type="text" value={gratitude} onChange={(e) => setGratitude(e.target.value)} placeholder="Hal kecil/besar yang bikin tersenyum..." style={{ width: '100%', padding: '12px', borderRadius: '10px', border: `1px solid ${theme.inputBorder}`, background: theme.inputBg, color: theme.text, fontSize: '14px', outline: 'none', boxSizing: 'border-box' }} />
             </div>
 
             <div style={{ background: theme.cardBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', padding: '18px', marginBottom: '20px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <label style={{ fontSize: '13px', fontWeight: 600, color: theme.subtext }}>
-                  BRAIN DUMP / CURHATAN 💭
-                </label>
-                <SpeechToText 
-                  theme={theme} 
-                  onTranscriptChange={(text) => setBrainDump((prev) => prev ? `${prev} ${text}` : text)} 
-                />
+                <label style={{ fontSize: '13px', fontWeight: 600, color: theme.subtext }}>BRAIN DUMP / CURHATAN 💭</label>
+                <SpeechToText theme={theme} onTranscriptChange={(text) => setBrainDump((prev) => prev ? `${prev} ${text}` : text)} />
               </div>
-              <textarea
-                rows="4" value={brainDump} onChange={(e) => setBrainDump(e.target.value)}
-                placeholder="Tumpahkan semua isi pikiranmu di sini..."
-                style={{ width: '100%', padding: '12px', borderRadius: '10px', border: `1px solid ${theme.inputBorder}`, background: theme.inputBg, color: theme.text, fontSize: '14px', outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }}
-              />
+              <textarea rows="4" value={brainDump} onChange={(e) => setBrainDump(e.target.value)} placeholder="Tumpahkan semua isi pikiranmu di sini..." style={{ width: '100%', padding: '12px', borderRadius: '10px', border: `1px solid ${theme.inputBorder}`, background: theme.inputBg, color: theme.text, fontSize: '14px', outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }} />
             </div>
 
-            <button
-              onClick={handleSave}
-              style={{ width: '100%', padding: '15px', background: theme.accent, color: '#FFF', border: 'none', borderRadius: '14px', fontSize: '15px', fontWeight: 700, cursor: 'pointer' }}
-            >
+            <button onClick={handleSave} style={{ width: '100%', padding: '15px', background: theme.accent, color: '#FFF', border: 'none', borderRadius: '14px', fontSize: '15px', fontWeight: 700, cursor: 'pointer' }}>
               Simpan ke Cloud ✨
             </button>
           </div>
         )}
 
-        {/* TAB 2: RIWAYAT */}
+        {/* TAB 2: KALENDER */}
+        {activeTab === 'calendar' && (
+          <CalendarView journalList={journalList} theme={theme} />
+        )}
+
+        {/* TAB 3: RIWAYAT */}
         {activeTab === 'history' && (
           <div>
             <div style={{ background: theme.cardBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', padding: '16px', marginBottom: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <h3 style={{ fontSize: '14px', fontWeight: 600, margin: 0, color: theme.subtext }}>ANALISIS MOOD 📊</h3>
-                
-                {/* TOMBOL EXPORT DATA */}
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <button onClick={exportToJson} style={{ padding: '4px 8px', fontSize: '11px', borderRadius: '6px', border: `1px solid ${theme.cardBorder}`, background: theme.inputBg, color: theme.text, cursor: 'pointer' }}>
-                    📦 Backup JSON
-                  </button>
-                  <button onClick={exportToPdf} style={{ padding: '4px 8px', fontSize: '11px', borderRadius: '6px', border: `1px solid ${theme.cardBorder}`, background: theme.inputBg, color: theme.text, cursor: 'pointer' }}>
-                    🖨️ Cetak PDF
-                  </button>
-                </div>
-              </div>
-
-              <div style={{ height: 220, width: '100%' }}>
+              <h3 style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 10px', color: theme.subtext }}>ANALISIS MOOD 📊</h3>
+              <div style={{ height: 200, width: '100%' }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart cx="50%" cy="50%" outerRadius="70%" data={chartData}>
+                  <RadarChart cx="50%" cy="50%" outerRadius="70%" data={getMoodSummaryData(journalList)}>
                     <PolarGrid stroke={theme.cardBorder} />
                     <PolarAngleAxis dataKey="mood" stroke={theme.subtext} tick={{ fill: theme.text, fontSize: 11 }} />
                     <PolarRadiusAxis angle={30} domain={[0, 'auto']} stroke="transparent" />
@@ -377,24 +265,8 @@ function App() {
             </div>
 
             <div style={{ marginBottom: '16px', display: 'flex', gap: '8px' }}>
-              <input
-                type="text"
-                placeholder="🔍 Cari catatan..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={{
-                  flex: 1, padding: '10px 14px', borderRadius: '10px', border: `1px solid ${theme.inputBorder}`,
-                  background: theme.cardBg, color: theme.text, fontSize: '13px', outline: 'none'
-                }}
-              />
-              <select
-                value={filterMood}
-                onChange={(e) => setFilterMood(e.target.value)}
-                style={{
-                  padding: '10px', borderRadius: '10px', border: `1px solid ${theme.inputBorder}`,
-                  background: theme.cardBg, color: theme.text, fontSize: '13px', outline: 'none'
-                }}
-              >
+              <input type="text" placeholder="🔍 Cari catatan..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ flex: 1, padding: '10px 14px', borderRadius: '10px', border: `1px solid ${theme.inputBorder}`, background: theme.cardBg, color: theme.text, fontSize: '13px', outline: 'none' }} />
+              <select value={filterMood} onChange={(e) => setFilterMood(e.target.value)} style={{ padding: '10px', borderRadius: '10px', border: `1px solid ${theme.inputBorder}`, background: theme.cardBg, color: theme.text, fontSize: '13px', outline: 'none' }}>
                 <option value="all">Semua Mood</option>
                 {Object.keys(moodConfig).map((emoji) => (
                   <option key={emoji} value={emoji}>{emoji} {moodConfig[emoji].label}</option>
@@ -403,11 +275,11 @@ function App() {
             </div>
 
             {loading ? (
-              <p style={{ textAlign: 'center', color: theme.subtext }}>Memuat dari cloud...</p>
+              <p style={{ textAlign: 'center', color: theme.subtext }}>Memuat jurnal milikmu...</p>
             ) : filteredJournals.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '40px 0', color: theme.subtext }}>
                 <p style={{ fontSize: '32px', margin: '0 0 8px' }}>📖</p>
-                <p style={{ fontSize: '14px' }}>Tidak ada catatan yang cocok.</p>
+                <p style={{ fontSize: '14px' }}>Belum ada catatan.</p>
               </div>
             ) : (
               filteredJournals.map((entry) => (
@@ -428,18 +300,8 @@ function App() {
                     </div>
                   )}
 
-                  {entry.gratitude && (
-                    <p style={{ margin: '4px 0', fontSize: '13px', lineHeight: 1.5 }}>
-                      <strong>🌿 Disyukuri:</strong> {entry.gratitude}
-                    </p>
-                  )}
-
-                  {entry.brain_dump && (
-                    <p style={{ margin: '6px 0 0', fontSize: '13px', lineHeight: 1.5, color: theme.text }}>
-                      <strong>💭 Catatan:</strong> {entry.brain_dump}
-                    </p>
-                  )}
-
+                  {entry.gratitude && <p style={{ margin: '4px 0', fontSize: '13px', lineHeight: 1.5 }}><strong>🌿 Disyukuri:</strong> {entry.gratitude}</p>}
+                  {entry.brain_dump && <p style={{ margin: '6px 0 0', fontSize: '13px', lineHeight: 1.5, color: theme.text }}><strong>💭 Catatan:</strong> {entry.brain_dump}</p>}
                   {entry.audio_url && (
                     <div style={{ marginTop: '10px' }}>
                       <p style={{ fontSize: '11px', color: theme.subtext, margin: '0 0 4px' }}>🎙️ Rekaman Suara:</p>
