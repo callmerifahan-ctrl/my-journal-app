@@ -53,14 +53,34 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMood, setFilterMood] = useState('all');
 
-  const [darkMode, setDarkMode] = useState(() => {
-    const saved = localStorage.getItem('journal_dark_mode');
-    return saved ? JSON.parse(saved) : false;
+  // --- LOGIKA TEMA IKUT SISTEM ---
+  const [themeMode, setThemeMode] = useState(() => {
+    return localStorage.getItem('journal_theme_mode') || 'system';
   });
+  const [isDark, setIsDark] = useState(false);
 
-  const theme = darkMode
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+    const updateTheme = () => {
+      if (themeMode === 'system') {
+        setIsDark(mediaQuery.matches);
+      } else {
+        setIsDark(themeMode === 'dark');
+      }
+    };
+
+    updateTheme();
+    localStorage.setItem('journal_theme_mode', themeMode);
+
+    mediaQuery.addEventListener('change', updateTheme);
+    return () => mediaQuery.removeEventListener('change', updateTheme);
+  }, [themeMode]);
+
+  const theme = isDark
     ? { bg: '#14121E', cardBg: '#1E1B2E', cardBorder: '#2D2842', text: '#F3EFEF', subtext: '#A39BB9', inputBg: '#181524', inputBorder: '#2D2842', accent: '#9D84B7' }
     : { bg: '#F8F6FC', cardBg: '#FFFFFF', cardBorder: '#EFEAF8', text: '#2D2738', subtext: '#8C829E', inputBg: '#FAFAFD', inputBorder: '#E4DCF3', accent: '#9D84B7' };
+  // -------------------------------
 
   // Sesi Login Supabase
   useEffect(() => {
@@ -75,7 +95,7 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Ambil jurnal milik pengguna yang sedang login (Warning ESLint Fixed)
+  // Ambil jurnal milik pengguna yang sedang login
   useEffect(() => {
     const fetchJournals = async () => {
       if (!session?.user) return;
@@ -94,10 +114,6 @@ function App() {
 
     fetchJournals();
   }, [session]);
-
-  useEffect(() => {
-    localStorage.setItem('journal_dark_mode', JSON.stringify(darkMode));
-  }, [darkMode]);
 
   const handleSave = async () => {
     if (!selectedMood && !gratitude && !brainDump && !audioBlob) {
@@ -181,9 +197,32 @@ function App() {
             <div style={{ background: theme.cardBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '20px', padding: '6px 12px', fontSize: '12px', fontWeight: 700, color: '#FF7043' }}>
               🔥 {calculateStreak(journalList)} Hari
             </div>
-            <button onClick={() => setDarkMode(!darkMode)} style={{ border: `1px solid ${theme.cardBorder}`, background: theme.cardBg, borderRadius: '50%', width: '38px', height: '38px', fontSize: '16px', cursor: 'pointer', color: theme.text }}>
-              {darkMode ? '☀️' : '🌙'}
+            
+            {/* TOMBOL PENGUBAH TEMA 3 MODE */}
+            <button
+              onClick={() => {
+                if (themeMode === 'system') setThemeMode('dark');
+                else if (themeMode === 'dark') setThemeMode('light');
+                else setThemeMode('system');
+              }}
+              title={`Mode Tampilan Saat Ini: ${themeMode.toUpperCase()}`}
+              style={{
+                border: `1px solid ${theme.cardBorder}`,
+                background: theme.cardBg,
+                borderRadius: '20px',
+                padding: '6px 12px',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                color: theme.text,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              {themeMode === 'system' ? '💻 Auto' : themeMode === 'dark' ? '🌙 Dark' : '☀️ Light'}
             </button>
+
             <button onClick={handleLogout} title="Keluar Akun" style={{ border: `1px solid ${theme.cardBorder}`, background: theme.cardBg, borderRadius: '50%', width: '38px', height: '38px', fontSize: '14px', cursor: 'pointer', color: '#E57373' }}>
               🚪
             </button>
