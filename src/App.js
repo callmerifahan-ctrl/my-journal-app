@@ -4,7 +4,6 @@ import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Responsi
 import AudioRecorder from './AudioRecorder';
 import SpeechToText from './SpeechToText';
 import Auth from './Auth';
-import CalendarView from './CalendarView';
 
 // --- CONFIG EMOSI ---
 const moodConfig = {
@@ -18,7 +17,17 @@ const moodConfig = {
   '🤯': { label: 'Overthinking', color: '#8338EC', bg: '#F2E8FE' },
 };
 
-// --- QUOTES & PROMPTS ---
+const moodPrompts = {
+  '🤩': 'Apa yang membuat energimu meluap hari ini? Bagaimana kamu bisa mempertahankan momentum ini?',
+  '😊': 'Momen manis apa yang paling ingin kamu ingat dari hari ini?',
+  '😌': 'Hal apa yang akhirnya selesai atau membuat pikiranmu merasa lapang saat ini?',
+  '😐': 'Jika ada 1 hal kecil yang bisa mengubah harimu dari netral menjadi menyenangkan, apa itu?',
+  '😫': 'Bagian tubuh mana yang paling terasa lelah? Istirahat seperti apa yang paling kamu butuhkan sekarang?',
+  '🥺': 'Perasaanmu valid. Apa hal kecil atau siapa yang bisa memberimu rasa nyaman saat ini?',
+  '😡': 'Apa pemicu utama amarahmu? Batasan (boundary) apa yang perlu kamu tegaskan untuk dirimu sendiri?',
+  '🤯': 'Mana dari pikiranmu yang merupakan FAKTA, dan mana yang sekadar ASUMSI/SANGKAAN?',
+};
+
 const dailyQuotes = [
   "Ingatlah untuk bersikap lembut pada dirimu sendiri hari ini. 🌸",
   "Tidak apa-apa untuk beristirahat saat kamu merasa lelah. ☕",
@@ -26,15 +35,6 @@ const dailyQuotes = [
   "Perasaanmu valid, tidak perlu terburu-buru untuk baik-baik saja. ✨",
   "Hari baru, kesempatan baru untuk menjadi dirimu sendiri. ☀️",
   "Kamu telah bertahan melewati 100% hari-hari sulitmu sejauh ini. 💪"
-];
-
-const reflectionPrompts = [
-  "Hal kecil apa yang paling membuatmu tersenyum hari ini?",
-  "Pelajaran terpenting apa yang kamu dapatkan minggu ini?",
-  "Jika bisa bicara dengan dirimu 5 tahun lalu, apa yang ingin kamu katakan?",
-  "Apa hal yang paling ingin kamu lepaskan dari beban pikiranmu saat ini?",
-  "Sebutkan 3 orang yang membuat hidupmu merasa lebih hangat baru-baru ini.",
-  "Apa bentuk kasih sayang pada diri sendiri (self-care) yang kamu butuhkan hari ini?"
 ];
 
 const categoryOptions = ['Pekerjaan', 'Kuliah/Sekolah', 'Keluarga', 'Asmara', 'Self Care', 'Umum'];
@@ -52,10 +52,12 @@ function getMoodSummaryData(journalList) {
 
 function calculateStreak(journalList) {
   if (journalList.length === 0) return 0;
-  const uniqueDates = Array.from(new Set(journalList.map(entry => new Date(entry.id).toDateString())));
+  // Memastikan conversion string ke ID timestamp aman
+  const uniqueDates = Array.from(new Set(journalList.map(entry => new Date(Number(entry.id)).toDateString())));
   let streak = 0;
   const today = new Date().toDateString();
   const yesterday = new Date(Date.now() - 86400000).toDateString();
+  
   if (!uniqueDates.includes(today) && !uniqueDates.includes(yesterday)) return 0;
 
   for (let i = 0; i < uniqueDates.length; i++) {
@@ -66,7 +68,6 @@ function calculateStreak(journalList) {
   return streak;
 }
 
-// LOGIKA TANAMAN VIRTUAL
 function getPlantStage(totalJournals) {
   if (totalJournals === 0) return { stage: '🫙', name: 'Pot Kosong', desc: 'Mulai isi jurnal untuk menanam benih!' };
   if (totalJournals < 3) return { stage: '🌱', name: 'Benih Kecil', desc: 'Tunas baru mulai tumbuh lewat curhatanmu.' };
@@ -75,14 +76,18 @@ function getPlantStage(totalJournals) {
   return { stage: '🌸', name: 'Bunga Mekar', desc: 'Luar biasa! Taman jiwamu sedang mekar indah.' };
 }
 
-// LOGIKA BADGES PENCAAPAIAN
 function getBadges(journalList) {
   const badges = [];
   if (journalList.length >= 1) badges.push({ emoji: '✍️', title: 'Langkah Pertama', desc: 'Menulis jurnal pertama kali' });
   if (journalList.length >= 10) badges.push({ emoji: '📚', title: 'Penulis Setia', desc: 'Mencapai 10 jurnal tersimpan' });
   if (journalList.some(e => e.gratitude)) badges.push({ emoji: '🌿', title: 'Hati Syukur', desc: 'Mencatat hal yang disyukuri' });
   if (journalList.some(e => e.audio_url)) badges.push({ emoji: '🎙️', title: 'Suara Jiwa', desc: 'Menggunakan rekaman suara' });
-  if (journalList.some(e => new Date(e.id).getHours() >= 23 || new Date(e.id).getHours() <= 4)) {
+  if (journalList.some(e => e.cbt_rational)) badges.push({ emoji: '🧠', title: 'Mind Master', desc: 'Melakukan restrukturisasi pikiran CBT' });
+  
+  if (journalList.some(e => {
+    const hours = new Date(Number(e.id)).getHours();
+    return hours >= 23 || hours <= 4;
+  })) {
     badges.push({ emoji: '🌙', title: 'Night Owl', desc: 'Curhat di larut malam' });
   }
   return badges;
@@ -103,16 +108,33 @@ function App() {
   const [isTimeCapsule, setIsTimeCapsule] = useState(false);
   const [unlockDate, setUnlockDate] = useState('');
 
-  // Noise Soundscape Generator (Web Audio API internal)
+  // CBT
+  const [cbtNegative, setCbtNegative] = useState('');
+  const [cbtRational, setCbtRational] = useState('');
+
+  // Energy
+  const [energyDrainer, setEnergyDrainer] = useState('');
+  const [energyGiver, setEnergyGiver] = useState('');
+
+  // Somatic Body Scan
+  const [bodySensations, setBodySensations] = useState([]);
+
+  // Burn & Release
+  const [burnText, setBurnText] = useState('');
+  const [isBurning, setIsBurning] = useState(false);
+
+  // Grounded
+  const [grounded, setGrounded] = useState({ v5: '', t4: '', s3: '', s2: '', g1: '' });
+
+  // Soundscape Generator
   const [activeSound, setActiveSound] = useState('off');
   const audioCtxRef = useRef(null);
-  const noiseNodeRef = useRef(null);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMood, setFilterMood] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
 
-  // Tema Ikut Sistem
+  // Tema
   const [themeMode, setThemeMode] = useState(() => localStorage.getItem('journal_theme_mode') || 'system');
   const [isDark, setIsDark] = useState(false);
 
@@ -133,9 +155,22 @@ function App() {
     : { bg: '#F8F6FC', cardBg: '#FFFFFF', cardBorder: '#EFEAF8', text: '#2D2738', subtext: '#8C829E', inputBg: '#FAFAFD', inputBorder: '#E4DCF3', accent: '#9D84B7' };
 
   const todayQuote = dailyQuotes[new Date().getDate() % dailyQuotes.length];
-  const todayPrompt = reflectionPrompts[new Date().getDate() % reflectionPrompts.length];
 
-  // Soundscape Generator
+  const bodyParts = [
+    { id: 'leher', label: 'Leher/Pundak Kaku 💆' },
+    { id: 'dada', label: 'Dada Sesak 🫁' },
+    { id: 'perut', label: 'Perut Mual/Tegang 🫄' },
+    { id: 'kepala', label: 'Kepala Berat 🧠' },
+    { id: 'mata', label: 'Mata Lelah 👁️' },
+    { id: 'rileks', label: 'Tubuh Rileks ✨' },
+  ];
+
+  const toggleBodySensation = (id) => {
+    setBodySensations(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
   const toggleSound = (type) => {
     if (activeSound === type) {
       if (audioCtxRef.current) audioCtxRef.current.close();
@@ -177,7 +212,6 @@ function App() {
     gain.connect(ctx.destination);
 
     noise.start();
-    noiseNodeRef.current = noise;
     setActiveSound(type);
   };
 
@@ -187,14 +221,12 @@ function App() {
     };
   }, []);
 
-  // Supabase Login
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session));
     return () => subscription.unsubscribe();
   }, []);
 
-  // Fetch Jurnal
   useEffect(() => {
     const fetchJournals = async () => {
       if (!session?.user) return;
@@ -214,8 +246,10 @@ function App() {
   }, [session]);
 
   const handleSave = async () => {
-    if (!selectedMood && !gratitude && !brainDump && !audioBlob) {
-      alert('Isi minimal satu kolom, mood, atau rekam suara dulu ya!');
+    const isGroundedFilled = Object.values(grounded).some(val => val.trim() !== '');
+    
+    if (!selectedMood && !gratitude && !brainDump && !audioBlob && !cbtNegative && !energyDrainer && bodySensations.length === 0 && !isGroundedFilled) {
+      alert('Isi minimal satu kolom refleksi, mood, atau rekam suara dulu ya!');
       return;
     }
 
@@ -247,7 +281,13 @@ function App() {
       brain_dump: brainDump,
       audio_url: uploadedAudioUrl,
       is_time_capsule: isTimeCapsule,
-      unlock_date: unlockDate || null
+      unlock_date: unlockDate || null,
+      cbt_negative: cbtNegative,
+      cbt_rational: cbtRational,
+      energy_drainer: energyDrainer,
+      energy_giver: energyGiver,
+      body_sensations: bodySensations,
+      grounded: grounded
     };
 
     const { error } = await supabase.from('journals').insert([newEntry]);
@@ -258,11 +298,11 @@ function App() {
       
       let warmMsg = isTimeCapsule 
         ? `🔒 Kapsul Waktu berhasil dikunci sampai tanggal ${unlockDate}!` 
-        : "Catatanmu tersimpan dengan aman ✨";
+        : "Refleksi dan jurnalmu berhasil tersimpan! 🌸";
       
       alert(warmMsg);
 
-      // Reset
+      // Reset Form State
       setSelectedMood('');
       setSelectedCategory('Umum');
       setGratitude('');
@@ -270,8 +310,24 @@ function App() {
       setAudioBlob(null);
       setIsTimeCapsule(false);
       setUnlockDate('');
+      setCbtNegative('');
+      setCbtRational('');
+      setEnergyDrainer('');
+      setEnergyGiver('');
+      setBodySensations([]);
+      setGrounded({ v5: '', t4: '', s3: '', s2: '', g1: '' });
       setActiveTab('history');
     }
+  };
+
+  const handleBurn = () => {
+    if (!burnText.trim()) return;
+    setIsBurning(true);
+    setTimeout(() => {
+      setBurnText('');
+      setIsBurning(false);
+      alert('🔥 Emosi negatifmu telah dibakar dan dilepaskan secara permanen. Bernapaslah dengan lega...');
+    }, 1500);
   };
 
   const handleDelete = async (id) => {
@@ -289,7 +345,10 @@ function App() {
 
   const filteredJournals = journalList.filter((entry) => {
     const cleanSearch = searchTerm.trim().toLowerCase();
-    const matchesSearch = !cleanSearch || (entry.gratitude && entry.gratitude.toLowerCase().includes(cleanSearch)) || (entry.brain_dump && entry.brain_dump.toLowerCase().includes(cleanSearch));
+    const matchesSearch = !cleanSearch || 
+      (entry.gratitude && entry.gratitude.toLowerCase().includes(cleanSearch)) || 
+      (entry.brain_dump && entry.brain_dump.toLowerCase().includes(cleanSearch)) ||
+      (entry.cbt_negative && entry.cbt_negative.toLowerCase().includes(cleanSearch));
     const matchesMood = filterMood === 'all' || entry.mood === filterMood;
     const matchesCategory = filterCategory === 'all' || entry.category === filterCategory;
     return matchesSearch && matchesMood && matchesCategory;
@@ -358,27 +417,23 @@ function App() {
 
         {/* TAB NAVIGATION */}
         <div style={{ display: 'flex', background: theme.cardBg, padding: '4px', borderRadius: '14px', border: `1px solid ${theme.cardBorder}`, marginBottom: '24px' }}>
-          <button onClick={() => setActiveTab('write')} style={{ flex: 1, padding: '10px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '13px', background: activeTab === 'write' ? theme.accent : 'transparent', color: activeTab === 'write' ? '#FFF' : theme.subtext }}>
-            ✍️ Tulis
+          <button onClick={() => setActiveTab('write')} style={{ flex: 1, padding: '10px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '12px', background: activeTab === 'write' ? theme.accent : 'transparent', color: activeTab === 'write' ? '#FFF' : theme.subtext }}>
+            ✍️ Jurnal
           </button>
-          <button onClick={() => setActiveTab('calendar')} style={{ flex: 1, padding: '10px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '13px', background: activeTab === 'calendar' ? theme.accent : 'transparent', color: activeTab === 'calendar' ? '#FFF' : theme.subtext }}>
-            📅 Kalender
+          <button onClick={() => setActiveTab('reflect')} style={{ flex: 1, padding: '10px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '12px', background: activeTab === 'reflect' ? theme.accent : 'transparent', color: activeTab === 'reflect' ? '#FFF' : theme.subtext }}>
+            🧘 Mind Gym
           </button>
-          <button onClick={() => setActiveTab('history')} style={{ flex: 1, padding: '10px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '13px', background: activeTab === 'history' ? theme.accent : 'transparent', color: activeTab === 'history' ? '#FFF' : theme.subtext }}>
+          <button onClick={() => setActiveTab('burn')} style={{ flex: 1, padding: '10px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '12px', background: activeTab === 'burn' ? theme.accent : 'transparent', color: activeTab === 'burn' ? '#FFF' : theme.subtext }}>
+            🔥 Katarsis
+          </button>
+          <button onClick={() => setActiveTab('history')} style={{ flex: 1, padding: '10px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '12px', background: activeTab === 'history' ? theme.accent : 'transparent', color: activeTab === 'history' ? '#FFF' : theme.subtext }}>
             📚 Riwayat ({journalList.length})
           </button>
         </div>
 
-        {/* TAB 1: FORM TULIS */}
+        {/* TAB 1: FORM TULIS UTAMA */}
         {activeTab === 'write' && (
           <div>
-            {/* PROMPT REFLEKSI HARIAN */}
-            <div style={{ background: theme.cardBg, border: `1px dashed ${theme.accent}`, borderRadius: '16px', padding: '16px', marginBottom: '16px' }}>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: theme.accent, letterSpacing: '0.5px' }}>PERTANYAAN REFLEKSI HARI INI</span>
-              <p style={{ margin: '6px 0 0', fontSize: '14px', fontWeight: 600, color: theme.text }}>"{todayPrompt}"</p>
-            </div>
-
-            {/* PILIH EMOSI */}
             <div style={{ background: theme.cardBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', padding: '18px', marginBottom: '16px' }}>
               <label style={{ fontSize: '13px', fontWeight: 600, display: 'block', marginBottom: '12px', color: theme.subtext }}>BAGAIMANA PERASAANMU SAAT INI?</label>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
@@ -391,7 +446,13 @@ function App() {
               </div>
             </div>
 
-            {/* KATEGORI */}
+            {selectedMood && moodPrompts[selectedMood] && (
+              <div style={{ background: moodConfig[selectedMood].bg, border: `1px solid ${moodConfig[selectedMood].color}`, borderRadius: '16px', padding: '14px 18px', marginBottom: '16px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#333' }}>💡 REFLEKSI EMOSI TERPILIH:</span>
+                <p style={{ margin: '4px 0 0', fontSize: '13px', fontWeight: 600, color: '#222' }}>"{moodPrompts[selectedMood]}"</p>
+              </div>
+            )}
+
             <div style={{ background: theme.cardBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', padding: '16px', marginBottom: '16px' }}>
               <label style={{ fontSize: '13px', fontWeight: 600, display: 'block', marginBottom: '8px', color: theme.subtext }}>TOPIK / KATEGORI 🏷️</label>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -403,19 +464,16 @@ function App() {
               </div>
             </div>
 
-            {/* AUDIO RECORDER */}
             <div style={{ background: theme.cardBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', padding: '18px', marginBottom: '16px' }}>
-              <label style={{ fontSize: '13px', fontWeight: 600, display: 'block', color: theme.subtext }}>LATIHAN PUBLIC SPEAKING / REKAM SUARA 🎙️</label>
+              <label style={{ fontSize: '13px', fontWeight: 600, display: 'block', color: theme.subtext }}>REKAM SUARA / CURHAT LISAN 🎙️</label>
               <AudioRecorder theme={theme} onRecordingComplete={(blob) => setAudioBlob(blob)} />
             </div>
 
-            {/* HAL DISYUKURI */}
             <div style={{ background: theme.cardBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', padding: '18px', marginBottom: '16px' }}>
               <label style={{ fontSize: '13px', fontWeight: 600, display: 'block', marginBottom: '8px', color: theme.subtext }}>HAL YANG DISYUKURI 🌿</label>
               <input type="text" value={gratitude} onChange={(e) => setGratitude(e.target.value)} placeholder="Hal kecil/besar yang bikin tersenyum..." style={{ width: '100%', padding: '12px', borderRadius: '10px', border: `1px solid ${theme.inputBorder}`, background: theme.inputBg, color: theme.text, fontSize: '14px', outline: 'none', boxSizing: 'border-box' }} />
             </div>
 
-            {/* BRAIN DUMP */}
             <div style={{ background: theme.cardBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', padding: '18px', marginBottom: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                 <label style={{ fontSize: '13px', fontWeight: 600, color: theme.subtext }}>BRAIN DUMP / CURHATAN 💭</label>
@@ -424,7 +482,6 @@ function App() {
               <textarea rows="4" value={brainDump} onChange={(e) => setBrainDump(e.target.value)} placeholder="Tumpahkan semua isi pikiranmu di sini..." style={{ width: '100%', padding: '12px', borderRadius: '10px', border: `1px solid ${theme.inputBorder}`, background: theme.inputBg, color: theme.text, fontSize: '14px', outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }} />
             </div>
 
-            {/* TIME CAPSULE LOCKER */}
             <div style={{ background: theme.cardBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', padding: '16px', marginBottom: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <label style={{ fontSize: '13px', fontWeight: 600, color: theme.text, display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -441,29 +498,127 @@ function App() {
             </div>
 
             <button onClick={handleSave} style={{ width: '100%', padding: '15px', background: theme.accent, color: '#FFF', border: 'none', borderRadius: '14px', fontSize: '15px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 12px rgba(157, 132, 183, 0.3)' }}>
-              Simpan ke Cloud ✨
+              Simpan Jurnal ✨
             </button>
           </div>
         )}
 
-        {/* TAB 2: KALENDER */}
-        {activeTab === 'calendar' && (
-          <CalendarView journalList={journalList} theme={theme} />
+        {/* TAB 2: MIND GYM */}
+        {activeTab === 'reflect' && (
+          <div>
+            <div style={{ background: theme.cardBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', padding: '18px', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '14px', fontWeight: 700, margin: '0 0 4px', color: theme.text }}>1. Somatic Body Scan 🧘‍♀️</h3>
+              <p style={{ fontSize: '11px', color: theme.subtext, margin: '0 0 12px' }}>Pindai tubuhmu, bagian mana yang terasa tegang/pegal hari ini?</p>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {bodyParts.map((item) => {
+                  const isSelected = bodySensations.includes(item.id);
+                  return (
+                    <button key={item.id} onClick={() => toggleBodySensation(item.id)} style={{ padding: '8px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 600, border: isSelected ? `1px solid ${theme.accent}` : `1px solid ${theme.inputBorder}`, background: isSelected ? theme.accent : theme.inputBg, color: isSelected ? '#FFF' : theme.text, cursor: 'pointer' }}>
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={{ background: theme.cardBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', padding: '18px', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '14px', fontWeight: 700, margin: '0 0 4px', color: theme.text }}>2. CBT Thought Reframing 🧠</h3>
+              <p style={{ fontSize: '11px', color: theme.subtext, margin: '0 0 12px' }}>Ubah pikiran negatif otomatis menjadi perspektif rasional.</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <input type="text" value={cbtNegative} onChange={(e) => setCbtNegative(e.target.value)} placeholder="Pikiran Negatif: 'Gua gak bakalan sanggup...'" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: `1px solid ${theme.inputBorder}`, background: theme.inputBg, color: theme.text, fontSize: '13px', boxSizing: 'border-box' }} />
+                <input type="text" value={cbtRational} onChange={(e) => setCbtRational(e.target.value)} placeholder="Fakta Rasional: 'Tapi dulu gua pernah berhasil lewat ini...'" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: `1px solid ${theme.inputBorder}`, background: theme.inputBg, color: theme.text, fontSize: '13px', boxSizing: 'border-box' }} />
+              </div>
+            </div>
+
+            <div style={{ background: theme.cardBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', padding: '18px', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '14px', fontWeight: 700, margin: '0 0 4px', color: theme.text }}>3. Energy Drainers vs Givers 🔋</h3>
+              <p style={{ fontSize: '11px', color: theme.subtext, margin: '0 0 12px' }}>Lacak apa yang menyedot vs mengisi ulang energimu hari ini.</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <input type="text" value={energyDrainer} onChange={(e) => setEnergyDrainer(e.target.value)} placeholder="🪫 Penyedot Energi..." style={{ padding: '10px', borderRadius: '8px', border: `1px solid ${theme.inputBorder}`, background: theme.inputBg, color: theme.text, fontSize: '12px' }} />
+                <input type="text" value={energyGiver} onChange={(e) => setEnergyGiver(e.target.value)} placeholder="🔋 Pengisi Energi..." style={{ padding: '10px', borderRadius: '8px', border: `1px solid ${theme.inputBorder}`, background: theme.inputBg, color: theme.text, fontSize: '12px' }} />
+              </div>
+            </div>
+
+            <div style={{ background: theme.cardBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', padding: '18px', marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '14px', fontWeight: 700, margin: '0 0 4px', color: theme.text }}>4. Grounded 5-4-3-2-1 (Redakan Cemas) ⚓</h3>
+              <p style={{ fontSize: '11px', color: theme.subtext, margin: '0 0 12px' }}>Gunakan indramu untuk kembali fokus ke masa kini.</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <input type="text" value={grounded.v5} onChange={(e) => setGrounded({...grounded, v5: e.target.value})} placeholder="👁️ 5 Hal yang kamu lihat..." style={{ padding: '8px', borderRadius: '6px', border: `1px solid ${theme.inputBorder}`, background: theme.inputBg, color: theme.text, fontSize: '12px' }} />
+                <input type="text" value={grounded.t4} onChange={(e) => setGrounded({...grounded, t4: e.target.value})} placeholder="🖐️ 4 Hal yang bisa dirasakan/disentuh..." style={{ padding: '8px', borderRadius: '6px', border: `1px solid ${theme.inputBorder}`, background: theme.inputBg, color: theme.text, fontSize: '12px' }} />
+                <input type="text" value={grounded.s3} onChange={(e) => setGrounded({...grounded, s3: e.target.value})} placeholder="👂 3 Suara yang terdengar..." style={{ padding: '8px', borderRadius: '6px', border: `1px solid ${theme.inputBorder}`, background: theme.inputBg, color: theme.text, fontSize: '12px' }} />
+                <input type="text" value={grounded.s2} onChange={(e) => setGrounded({...grounded, s2: e.target.value})} placeholder="👃 2 Bau yang tercium..." style={{ padding: '8px', borderRadius: '6px', border: `1px solid ${theme.inputBorder}`, background: theme.inputBg, color: theme.text, fontSize: '12px' }} />
+                <input type="text" value={grounded.g1} onChange={(e) => setGrounded({...grounded, g1: e.target.value})} placeholder="✨ 1 Hal baik tentang dirimu..." style={{ padding: '8px', borderRadius: '6px', border: `1px solid ${theme.inputBorder}`, background: theme.inputBg, color: theme.text, fontSize: '12px' }} />
+              </div>
+            </div>
+
+            <button onClick={handleSave} style={{ width: '100%', padding: '15px', background: theme.accent, color: '#FFF', border: 'none', borderRadius: '14px', fontSize: '15px', fontWeight: 700, cursor: 'pointer' }}>
+              Simpan Refleksi Mind Gym ✨
+            </button>
+          </div>
         )}
 
-        {/* TAB 3: RIWAYAT & WIDGET GAMIFIKASI */}
+        {/* TAB 3: KATARSIS */}
+        {activeTab === 'burn' && (
+          <div style={{ background: theme.cardBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', padding: '20px', textAlign: 'center' }}>
+            <span style={{ fontSize: '40px' }}>🔥</span>
+            <h3 style={{ fontSize: '16px', fontWeight: 700, margin: '8px 0 4px', color: theme.text }}>Burn & Release (Pelepasan Emosi)</h3>
+            <p style={{ fontSize: '12px', color: theme.subtext, margin: '0 0 16px' }}>
+              Tulis amarah, kecemasan, atau kekesalanmu di bawah ini. Teks ini <strong>TIDAK AKAN TERSIMPAN</strong> di database. Begitu ditekan tombol Bakar, tulisan ini akan hangus selamanya.
+            </p>
+
+            <textarea
+              rows="6"
+              value={burnText}
+              onChange={(e) => setBurnText(e.target.value)}
+              placeholder="Luapkan seluruh amarah dan kemarahanmu di sini..."
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '12px',
+                border: `1px solid ${theme.inputBorder}`,
+                background: theme.inputBg,
+                color: theme.text,
+                fontSize: '14px',
+                outline: 'none',
+                resize: 'none',
+                boxSizing: 'border-box',
+                opacity: isBurning ? 0.2 : 1,
+                transition: 'opacity 1s ease'
+              }}
+            />
+
+            <button
+              onClick={handleBurn}
+              disabled={isBurning || !burnText.trim()}
+              style={{
+                marginTop: '16px',
+                width: '100%',
+                padding: '14px',
+                background: isBurning ? '#888' : 'linear-gradient(135deg, #EF476F, #FF7043)',
+                color: '#FFF',
+                border: 'none',
+                borderRadius: '12px',
+                fontSize: '14px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(239, 71, 111, 0.3)'
+              }}
+            >
+              {isBurning ? '🔥 Sedang Membakar Emosi...' : '🔥 Bakar & Lepaskan Selamanya'}
+            </button>
+          </div>
+        )}
+
+        {/* TAB 4: RIWAYAT */}
         {activeTab === 'history' && (
           <div>
-            {/* TANAMAN EMOSI & BADGES BANNER */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
-              {/* TANAMAN VIRTUAL */}
               <div style={{ background: theme.cardBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', padding: '14px', textAlign: 'center' }}>
                 <div style={{ fontSize: '40px', marginBottom: '4px' }}>{plantInfo.stage}</div>
                 <h4 style={{ margin: 0, fontSize: '13px', color: theme.text }}>{plantInfo.name}</h4>
                 <p style={{ margin: '4px 0 0', fontSize: '10px', color: theme.subtext }}>{plantInfo.desc}</p>
               </div>
 
-              {/* BADGES / LENCANA */}
               <div style={{ background: theme.cardBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', padding: '14px' }}>
                 <h4 style={{ margin: '0 0 8px', fontSize: '12px', color: theme.subtext }}>LENCANA PENCAPAIAN 🏆</h4>
                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
@@ -477,7 +632,6 @@ function App() {
               </div>
             </div>
 
-            {/* RADAR SPEKTRUM EMOSI */}
             <div style={{ background: theme.cardBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', padding: '16px', marginBottom: '20px' }}>
               <h3 style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 10px', color: theme.subtext }}>SPEKTRUM EMOSI 📊</h3>
               <div style={{ height: 220, width: '100%' }}>
@@ -492,7 +646,6 @@ function App() {
               </div>
             </div>
 
-            {/* FILTER SEARCH & CATEGORY */}
             <div style={{ marginBottom: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <input type="text" placeholder="🔍 Cari kata..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ flex: 1, minWidth: '140px', padding: '10px 14px', borderRadius: '10px', border: `1px solid ${theme.inputBorder}`, background: theme.cardBg, color: theme.text, fontSize: '13px', outline: 'none' }} />
               
@@ -511,7 +664,6 @@ function App() {
               </select>
             </div>
 
-            {/* DAFTAR JURNAL */}
             {loading ? (
               <p style={{ textAlign: 'center', color: theme.subtext }}>Memuat jurnal milikmu...</p>
             ) : filteredJournals.length === 0 ? (
@@ -542,7 +694,6 @@ function App() {
                       </button>
                     </div>
 
-                    {/* JIKA KAPSUL WAKTU MASIH TERKUNCI */}
                     {isLocked ? (
                       <div style={{ background: theme.inputBg, border: `1px dashed ${theme.cardBorder}`, borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
                         <span style={{ fontSize: '30px' }}>🔒</span>
@@ -560,6 +711,14 @@ function App() {
 
                         {entry.gratitude && <p style={{ margin: '4px 0', fontSize: '13px', lineHeight: 1.5 }}><strong>🌿 Disyukuri:</strong> {entry.gratitude}</p>}
                         {entry.brain_dump && <p style={{ margin: '6px 0 0', fontSize: '13px', lineHeight: 1.5, color: theme.text }}><strong>💭 Catatan:</strong> {entry.brain_dump}</p>}
+                        
+                        {entry.cbt_negative && (
+                          <div style={{ background: theme.inputBg, padding: '10px', borderRadius: '10px', marginTop: '8px', fontSize: '12px' }}>
+                            <p style={{ margin: '0 0 4px', color: '#E57373' }}><strong>💭 Pikiran Negatif:</strong> {entry.cbt_negative}</p>
+                            <p style={{ margin: 0, color: '#81C784' }}><strong>💡 Fakta Rasional:</strong> {entry.cbt_rational}</p>
+                          </div>
+                        )}
+
                         {entry.audio_url && (
                           <div style={{ marginTop: '10px' }}>
                             <p style={{ fontSize: '11px', color: theme.subtext, margin: '0 0 4px' }}>🎙️ Rekaman Suara:</p>
