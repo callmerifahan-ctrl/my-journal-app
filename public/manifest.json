@@ -1,6 +1,7 @@
 {
   "short_name": "PikiranBerbicara",
   "name": "Pikiran Berbicara 🌸",
+  "description": "Aplikasi jurnal refleksi harian, kesehatan mental, dan penguat hati.",
   "icons": [
     {
       "src": "favicon.svg",
@@ -11,16 +12,35 @@
     {
       "src": "logo192.png",
       "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "logo192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "maskable"
     },
     {
       "src": "logo512.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "logo512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
     }
   ],
   "start_url": ".",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
   "theme_color": "#14121E",
-  "background_color": "#14121E"
+  "background_color": "#14121E",
+  "categories": ["lifestyle", "health", "productivity"],
+  "lang": "id-ID"
 }
