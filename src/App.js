@@ -3,7 +3,7 @@ import { supabase } from './supabaseClient';
 import SpeechToText from './SpeechToText';
 
 // ==========================================
-// 1. INTEGRASI GEMINI AI (SECURE API KEY)
+// INTEGRASI GEMINI AI (PANGGIL VIA .ENV)
 // ==========================================
 async function getAiInsight(isiJurnal, mode) {
   const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
@@ -26,8 +26,6 @@ async function getAiInsight(isiJurnal, mode) {
     Isi Jurnal: "${isiJurnal}"
   `;
 
-  const promptFinal = mode === 'islami' ? promptIslami : promptUmum;
-
   try {
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
@@ -35,7 +33,7 @@ async function getAiInsight(isiJurnal, mode) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: promptFinal }] }]
+          contents: [{ parts: [{ text: mode === 'islami' ? promptIslami : promptUmum }] }]
         })
       }
     );
@@ -48,33 +46,39 @@ async function getAiInsight(isiJurnal, mode) {
   }
 }
 
-// ==========================================
-// 2. KOMPONEN UTAMA APP
-// ==========================================
 function App() {
-  const [mode, setMode] = useState('umum'); // 'umum' atau 'islami'
+  // STATE UI & FITUR LENGKAP
+  const [mode, setMode] = useState('umum'); // 'umum' / 'islami'
   const [isDarkMode, setIsDarkMode] = useState(true);
-  const [mood, setMood] = useState('Semangat');
-  const [text, setText] = useState('');
+  const [activeTab, setActiveTab] = useState('jurnal');
+  const [mood, setMood] = useState('Netral');
+  const [topic, setTopic] = useState('#Umum');
   const [gratitude, setGratitude] = useState('');
-  const [category, setCategory] = useState('#Umum');
+  const [text, setText] = useState('');
+  const [isTimeCapsule, setIsTimeCapsule] = useState(false);
   const [journals, setJournals] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [streak, setStreak] = useState(0);
 
-  // Styling Warna Tema
+  // CHECKLIST KEBIASAAN HARIAN
+  const [checklist, setChecklist] = useState({
+    water: false,
+    sleep: false,
+    walk: false,
+    read: false
+  });
+
   const isIslami = mode === 'islami';
-  const primaryColor = isIslami ? '#417D58' : '#8A70AB';
-  const bgColor = isDarkMode ? '#171523' : '#F4F5F9';
-  const cardBg = isDarkMode ? '#222034' : '#FFFFFF';
-  const textColor = isDarkMode ? '#FFFFFF' : '#171523';
+  const primaryColor = isIslami ? '#4E7D5B' : '#8A70AB';
+  const bgColor = isDarkMode ? '#1B1927' : '#F4F5F9';
+  const cardBg = isDarkMode ? '#252336' : '#FFFFFF';
+  const textColor = isDarkMode ? '#FFFFFF' : '#1B1927';
   const subTextColor = isDarkMode ? '#A0A0B0' : '#666666';
 
   useEffect(() => {
     fetchJournals();
   }, []);
 
-  // Hitung Streak Menulis Jurnal
+  // FITUR HITUNG STREAK (🔥)
   const calculateStreak = (data) => {
     if (!data || data.length === 0) return 0;
     const dates = [...new Set(data.map(item => new Date(item.created_at).toDateString()))];
@@ -84,15 +88,11 @@ function App() {
 
     for (let i = 0; i < dates.length; i++) {
       const journalDate = new Date(dates[i]);
-      const diffTime = Math.abs(checkDate - journalDate);
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) - 1;
-
+      const diffDays = Math.ceil(Math.abs(checkDate - journalDate) / (1000 * 60 * 60 * 24)) - 1;
       if (diffDays === 0 || (i === 0 && diffDays === 1)) {
         currentStreak++;
         checkDate.setDate(checkDate.getDate() - 1);
-      } else {
-        break;
-      }
+      } else { break; }
     }
     return currentStreak;
   };
@@ -103,12 +103,7 @@ function App() {
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Error fetching journals:', error);
-    } else {
-      setJournals(data || []);
-      setStreak(calculateStreak(data || []));
-    }
+    if (!error) setJournals(data || []);
   };
 
   const handleSubmit = async (e) => {
@@ -124,15 +119,12 @@ function App() {
         text: fullContent,
         mood: mood,
         mode: mode,
-        category: category,
+        category: topic,
         ai_insight: aiResponse
       }
     ]);
 
-    if (error) {
-      console.error('Error saving journal:', error);
-      alert('Gagal menyimpan jurnal.');
-    } else {
+    if (!error) {
       setText('');
       setGratitude('');
       fetchJournals();
@@ -140,133 +132,205 @@ function App() {
     setIsLoading(false);
   };
 
-  const handleSpeechResult = (transcript) => {
-    setText((prev) => prev + ' ' + transcript);
-  };
+  const completedChecklistCount = Object.values(checklist).filter(Boolean).length;
 
   return (
-    <div style={{ backgroundColor: bgColor, color: textColor, minHeight: '100vh', padding: '20px 15px', fontFamily: 'system-ui, sans-serif' }}>
+    <div style={{ backgroundColor: bgColor, color: textColor, minHeight: '100vh', padding: '20px 12px', fontFamily: 'system-ui, sans-serif' }}>
       
       {/* CSS RESPONSIVE GRID (HP: 1 Kolom, Laptop: 2 Kolom) */}
       <style>{`
-        .app-container {
-          max-width: 1000px;
-          margin: 0 auto;
-        }
-        .main-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 20px;
-        }
-        @media (min-width: 768px) {
-          .main-grid {
-            grid-template-columns: 1.2fr 0.8fr;
-          }
-        }
-        .card {
-          background-color: ${cardBg};
-          border-radius: 16px;
-          padding: 18px;
-          margin-bottom: 16px;
-        }
-        .btn-mode {
-          padding: 8px 16px;
-          border-radius: 20px;
-          border: none;
-          cursor: pointer;
-          font-weight: bold;
-          transition: 0.2s;
-        }
+        .app-container { max-width: 900px; margin: 0 auto; }
+        .main-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+        @media (min-width: 768px) { .main-grid { grid-template-columns: 1.1fr 0.9fr; } }
+        .card { background-color: ${cardBg}; border-radius: 16px; padding: 16px; margin-bottom: 14px; }
+        .badge { padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; border: none; cursor: pointer; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .grid-6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
       `}</style>
 
       <div className="app-container">
         
-        {/* HEADER APLIKASI */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+        {/* HEADER APLIKASI + STREAK 🔥 */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '2rem' }}>{isIslami ? '🕌' : '🌸'}</span>
+            <span style={{ fontSize: '1.8rem' }}>{isIslami ? '🕌' : '🌸'}</span>
             <div>
-              <h2 style={{ margin: 0, fontSize: '1.2rem' }}>{isIslami ? "Jurnal Hati & Ta'ammul" : "Pikiran Berbicara"}</h2>
-              <small style={{ color: subTextColor }}>callmerifahan@gmail.com</small>
+              <h2 style={{ margin: 0, fontSize: '1.1rem' }}>{isIslami ? "Jurnal Hati & Ta'ammul" : "Pikiran Berbicara"}</h2>
+              <small style={{ color: subTextColor, fontSize: '0.75rem' }}>callmerifahan@gmail.com</small>
             </div>
           </div>
 
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            {/* FITUR STREAK 🔥 */}
-            <div style={{ backgroundColor: '#FF6B0022', color: '#FF6B00', padding: '6px 12px', borderRadius: '20px', fontWeight: 'bold', fontSize: '0.85rem' }}>
-              🔥 {streak} Hari
+            {/* FITUR STREAK API 🔥 */}
+            <div style={{ backgroundColor: '#FF6B0022', color: '#FF6B00', padding: '6px 12px', borderRadius: '20px', fontWeight: 'bold', fontSize: '0.8rem' }}>
+              🔥 {calculateStreak(journals)} Hari
             </div>
-            {/* DARK/LIGHT MODE TOGGLE */}
-            <button onClick={() => setIsDarkMode(!isDarkMode)} style={{ border: 'none', background: cardBg, color: textColor, padding: '6px 12px', borderRadius: '20px', cursor: 'pointer', fontSize: '0.85rem' }}>
-              {isDarkMode ? '🌙 Dark' : '☀️ Light'}
+            <button onClick={() => setIsDarkMode(!isDarkMode)} className="badge" style={{ backgroundColor: cardBg, color: textColor }}>
+              🌙 Dark
             </button>
           </div>
         </div>
 
         {/* MODE SWITCHER */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '16px' }}>
           <button
-            className="btn-mode"
             onClick={() => setMode('umum')}
-            style={{ backgroundColor: !isIslami ? '#8A70AB' : cardBg, color: !isIslami ? '#fff' : subTextColor }}
+            className="badge"
+            style={{ backgroundColor: !isIslami ? '#8A70AB' : cardBg, color: '#fff', fontWeight: 'bold' }}
           >
             🌿 Mode Umum
           </button>
           <button
-            className="btn-mode"
             onClick={() => setMode('islami')}
-            style={{ backgroundColor: isIslami ? '#417D58' : cardBg, color: isIslami ? '#fff' : subTextColor }}
+            className="badge"
+            style={{ backgroundColor: isIslami ? '#4E7D5B' : cardBg, color: '#fff', fontWeight: 'bold' }}
           >
             🕌 Mode Islami
           </button>
         </div>
 
-        {/* KONTEN UTAMA (LAYOUT GRID RESPONSIP) */}
+        {/* LAYOUT RESPONSIP HP VS LAPTOP */}
         <div className="main-grid">
           
-          {/* KOLOM KIRI: FORM INPUT JURNAL */}
+          {/* KOLOM UTAMA (FORM & TOOLS) */}
           <div>
             
-            {/* QUOTE HARIAN */}
-            <div className="card" style={{ borderLeft: `4px solid ${primaryColor}` }}>
-              <p style={{ margin: 0, fontStyle: 'italic', fontSize: '0.9rem' }}>
-                {isIslami 
-                  ? '"Allah tidak membebani seseorang melainkan sesuai dengan kesanggupannya. (QS. Al-Baqarah: 286) 🌱"'
-                  : '"Perasaanmu valid, tidak perlu terburu-buru untuk baik-baik saja. ✨"'}
-              </p>
-            </div>
-
-            {/* MOOD TRACKER */}
+            {/* KEBIASAAN HARIAN */}
             <div className="card">
-              <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: subTextColor }}>BAGAIAMANA PERASAANMU SAAT INI?</span>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginTop: '12px' }}>
-                {['😊 Senang', '😐 Netral', '😢 Sedih', '😡 Kesal', '😴 Lelah', '🤯 Overthinking', '🔥 Semangat', '🤲 Lega'].map((m) => (
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                <span>✅ KEBIASAAN HARIAN (CHECKLIST Hari Ini)</span>
+                <span style={{ color: subTextColor }}>{completedChecklistCount}/4 Done</span>
+              </div>
+              <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                {[
+                  { id: 'water', label: '💧 Minum 2L Air' },
+                  { id: 'sleep', label: '😴 Tidur < Jam 11 Malam' },
+                  { id: 'walk', label: '🚶 Jalan / Bergerak 15 Menit' },
+                  { id: 'read', label: isIslami ? '📖 Membaca / Dzikir 10 Menit' : '📖 Membaca 10 Menit' }
+                ].map(item => (
                   <button
-                    key={m}
+                    key={item.id}
                     type="button"
-                    onClick={() => setMood(m)}
+                    onClick={() => setChecklist(p => ({ ...p, [item.id]: !p[item.id] }))}
+                    className="badge"
                     style={{
-                      padding: '8px 4px',
-                      borderRadius: '10px',
-                      border: 'none',
-                      backgroundColor: mood === m ? primaryColor : (isDarkMode ? '#1D1B2C' : '#EFEFEF'),
-                      color: mood === m ? '#FFF' : textColor,
-                      fontSize: '0.75rem',
-                      cursor: 'pointer'
+                      backgroundColor: checklist[item.id] ? primaryColor : (isDarkMode ? '#1B1927' : '#EFEFEF'),
+                      color: checklist[item.id] ? '#FFF' : textColor,
+                      textAlign: 'left',
+                      fontSize: '0.7rem'
                     }}
                   >
-                    {m}
+                    {item.label}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* FORM ISI JURNAL */}
+            {/* QUOTE HARIAN */}
+            <div className="card" style={{ textAlign: 'center', fontStyle: 'italic', fontSize: '0.85rem' }}>
+              💡 {isIslami 
+                ? '"Allah tidak membebani seseorang melainkan sesuai dengan kesanggupannya. (QS. Al-Baqarah: 286) 🌱"'
+                : '"Perasaanmu valid, tidak perlu terburu-buru untuk baik-baik saja. ✨"'}
+            </div>
+
+            {/* SUARA LATAR & RELAKSASI */}
+            <div className="card">
+              <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: subTextColor, display: 'block', marginBottom: '8px' }}>🎧 SUARA LATAR & RELAKSASI:</span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="badge" style={{ backgroundColor: isDarkMode ? '#1B1927' : '#EFEFEF', color: textColor }}>🌧️ Hujan</button>
+                <button className="badge" style={{ backgroundColor: isDarkMode ? '#1B1927' : '#EFEFEF', color: textColor }}>☕ Kafe</button>
+                {isIslami && <button className="badge" style={{ backgroundColor: isDarkMode ? '#1B1927' : '#EFEFEF', color: textColor }}>📖 Murottal (QS. Ar-Rahman)</button>}
+              </div>
+            </div>
+
+            {/* FITUR NAVIGATION TABS */}
+            <div className="card grid-6" style={{ textAlign: 'center', fontSize: '0.7rem' }}>
+              {[
+                { id: 'jurnal', icon: '✍️', label: 'Jurnal' },
+                { id: 'mind', icon: '🧘', label: 'Mind Gym' },
+                { id: 'napas', icon: '🫁', label: 'Napas 4-7-8' },
+                { id: 'surat', icon: '💌', label: 'Surat Diri' },
+                { id: 'katarsis', icon: '🔥', label: 'Katarsis' },
+                { id: 'analisis', icon: '📊', label: 'Analisis' }
+              ].map(tab => (
+                <div
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  style={{
+                    padding: '8px 4px',
+                    borderRadius: '10px',
+                    backgroundColor: activeTab === tab.id ? primaryColor : 'transparent',
+                    color: activeTab === tab.id ? '#FFF' : textColor,
+                    cursor: 'pointer'
+                  }}
+                >
+                  <div style={{ fontSize: '1rem' }}>{tab.icon}</div>
+                  <div>{tab.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* MOOD TRACKER (8 EMOJI) */}
+            <div className="card">
+              <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: subTextColor, display: 'block', marginBottom: '10px' }}>BAGAIAMANA PERASAANMU SAAT INI?</span>
+              <div className="grid-4">
+                {[
+                  { icon: '🤩', label: 'Semangat' }, { icon: '😊', label: 'Senang' },
+                  { icon: '🤲', label: 'Lega' }, { icon: '😐', label: 'Netral' },
+                  { icon: '😴', label: 'Lelah' }, { icon: '😢', label: 'Sedih/Cemas' },
+                  { icon: '😡', label: 'Kesal' }, { icon: '🤯', label: 'Overthinking' }
+                ].map(m => (
+                  <button
+                    key={m.label}
+                    type="button"
+                    onClick={() => setMood(m.label)}
+                    style={{
+                      padding: '10px 4px',
+                      borderRadius: '10px',
+                      border: 'none',
+                      backgroundColor: mood === m.label ? primaryColor : (isDarkMode ? '#1B1927' : '#EFEFEF'),
+                      color: mood === m.label ? '#FFF' : subTextColor,
+                      fontSize: '0.7rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <div style={{ fontSize: '1.2rem' }}>{m.icon}</div>
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* TOPIK / KATEGORI */}
+            <div className="card">
+              <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: subTextColor, display: 'block', marginBottom: '8px' }}>TOPIK / KATEGORI 🏷️</span>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {(isIslami 
+                  ? ['#Ibadah', '#Rezeki', '#Ujian/Sabar', '#Keluarga', '#Hati/Jiwa', '#Umum'] 
+                  : ['#Pekerjaan', '#Kuliah/Sekolah', '#Keluarga', '#Asmara', '#Self Care', '#Umum']
+                ).map(t => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setTopic(t)}
+                    className="badge"
+                    style={{
+                      backgroundColor: topic === t ? primaryColor : (isDarkMode ? '#1B1927' : '#EFEFEF'),
+                      color: topic === t ? '#FFF' : textColor
+                    }}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* FORM JURNAL */}
             <form onSubmit={handleSubmit}>
               
-              {/* HAL YANG DISYUKURI */}
+              {/* HAL DISYUKURI */}
               <div className="card">
-                <label style={{ fontSize: '0.85rem', fontWeight: 'bold', display: 'block', marginBottom: '8px' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '6px' }}>
                   {isIslami ? '🤲 Hal yang Di-Alhamdulillah-kan Hari Ini' : '🌿 Hal yang Disyukuri'}
                 </label>
                 <input
@@ -274,28 +338,47 @@ function App() {
                   value={gratitude}
                   onChange={(e) => setGratitude(e.target.value)}
                   placeholder={isIslami ? "Nikmat kecil/besar dari Allah yang dirasakan..." : "Hal kecil/besar yang bikin kamu tersenyum..."}
-                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #444', backgroundColor: isDarkMode ? '#171523' : '#FFF', color: textColor, boxSizing: 'border-width' }}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: 'none', backgroundColor: isDarkMode ? '#1B1927' : '#F4F5F9', color: textColor, boxSizing: 'border-box', fontSize: '0.8rem' }}
                 />
               </div>
 
-              {/* CURHATAN & SPEECH TO TEXT */}
+              {/* CURHATAN / BRAIN DUMP */}
               <div className="card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>
                     {isIslami ? '🕌 Curhat & Doa Murni ke Allah' : '💭 Curhatan / Brain Dump'}
                   </label>
-                  <SpeechToText onResult={handleSpeechResult} />
+                  <SpeechToText onResult={(t) => setText(p => p + ' ' + t)} />
                 </div>
                 <textarea
-                  rows="5"
+                  rows="4"
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   placeholder={isIslami ? "Tumpahkan seluruh isi hati dan doamu di hadapan-Nya..." : "Tumpahkan semua isi pikiranmu di sini..."}
-                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #444', backgroundColor: isDarkMode ? '#171523' : '#FFF', color: textColor, boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: 'none', backgroundColor: isDarkMode ? '#1B1927' : '#F4F5F9', color: textColor, boxSizing: 'border-box', fontSize: '0.8rem' }}
                 />
               </div>
 
-              {/* TOMBOL SUBMIT */}
+              {/* TAMBAHKAN FOTO */}
+              <div className="card">
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '6px' }}>TAMBAHKAN FOTO / KENANGAN 🖼️</label>
+                <input type="file" style={{ fontSize: '0.75rem', color: subTextColor }} />
+              </div>
+
+              {/* REKAM SUARA LISAN */}
+              <div className="card" style={{ textAlign: 'center' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '8px' }}>REKAM SUARA LISAN 🎙️</span>
+                <div style={{ fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '8px' }}>⏱️ Durasi: 00:00 / 01:00</div>
+                <button type="button" className="badge" style={{ backgroundColor: '#FF5252', color: '#FFF', width: '100%', padding: '10px' }}>🎙️ Mulai Rekam</button>
+              </div>
+
+              {/* KAPSUL WAKTU */}
+              <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>🔒 Kunci Sebagai Kapsul Waktu Masa Depan</span>
+                <input type="checkbox" checked={isTimeCapsule} onChange={(e) => setIsTimeCapsule(e.target.checked)} />
+              </div>
+
+              {/* TOMBOL SIMPAN */}
               <button
                 type="submit"
                 disabled={isLoading}
@@ -307,9 +390,9 @@ function App() {
                   backgroundColor: isLoading ? '#666' : primaryColor,
                   color: 'white',
                   fontWeight: 'bold',
-                  fontSize: '1rem',
+                  fontSize: '0.9rem',
                   cursor: isLoading ? 'not-allowed' : 'pointer',
-                  marginBottom: '20px'
+                  marginBottom: '16px'
                 }}
               >
                 {isLoading ? 'Sedang Memproses AI...' : 'Simpan Refleksi ✨'}
@@ -318,61 +401,46 @@ function App() {
 
           </div>
 
-          {/* KOLOM KANAN: RIWAYAT JURNAL & KALENDER */}
+          {/* KOLOM KANAN (RIWAYAT JURNAL + IKON KALENDER 📅) */}
           <div>
             <div className="card">
-              <h3 style={{ marginTop: 0, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>📚</span> Riwayat Catatan
+              <h3 style={{ marginTop: 0, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                📚 Riwayat Catatan ({journals.length})
               </h3>
 
               {journals.length === 0 ? (
-                <p style={{ color: subTextColor, fontSize: '0.85rem' }}>Belum ada catatan jurnal.</p>
+                <p style={{ color: subTextColor, fontSize: '0.8rem' }}>Belum ada catatan jurnal.</p>
               ) : (
                 journals.map((item) => (
                   <div
                     key={item.id}
                     style={{
-                      backgroundColor: isDarkMode ? '#171523' : '#F8F9FA',
+                      backgroundColor: isDarkMode ? '#1B1927' : '#F8F9FA',
                       padding: '12px',
                       borderRadius: '10px',
-                      marginBottom: '12px',
-                      borderLeft: `4px solid ${item.mode === 'islami' ? '#417D58' : '#8A70AB'}`
+                      marginBottom: '10px',
+                      borderLeft: `4px solid ${item.mode === 'islami' ? '#4E7D5B' : '#8A70AB'}`
                     }}
                   >
-                    {/* FORMAT TANGGALAN DENGAN IKON KALENDER 📅 */}
-                    <div style={{ fontSize: '0.75rem', color: subTextColor, display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    {/* TANGGALAN & IKON KALENDER 📅 */}
+                    <div style={{ fontSize: '0.7rem', color: subTextColor, display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                       <span>📅 {new Date(item.created_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}</span>
                       <span>{item.mood}</span>
                     </div>
 
-                    <p style={{ fontSize: '0.85rem', margin: '6px 0', whiteSpace: 'pre-line' }}>{item.text}</p>
+                    <p style={{ fontSize: '0.8rem', margin: '4px 0', whiteSpace: 'pre-line' }}>{item.text}</p>
 
                     {/* AI INSIGHT */}
                     {item.ai_insight && (
                       <div
                         style={{
                           marginTop: '8px',
-                          padding: '8px 10px',
-                          backgroundColor: item.mode === 'islami' ? '#417D5822' : '#8A70AB22',
+                          padding: '8px',
+                          backgroundColor: item.mode === 'islami' ? '#4E7D5B22' : '#8A70AB22',
                           borderRadius: '6px',
-                          fontSize: '0.8rem',
+                          fontSize: '0.75rem',
                           color: item.mode === 'islami' ? '#81C784' : '#B39DDB'
                         }}
                       >
                         <strong>{item.mode === 'islami' ? '🕌 Pesan Spiritual AI:' : '💡 Catatan Hangat AI:'}</strong>
-                        <p style={{ margin: '4px 0 0 0', whiteSpace: 'pre-line' }}>{item.ai_insight}</p>
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export default App;
+          
