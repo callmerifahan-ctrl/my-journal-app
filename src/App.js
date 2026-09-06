@@ -14,7 +14,7 @@ const contentByMode = {
     ],
     topics: ['#Pekerjaan', '#Kuliah/Sekolah', '#Keluarga', '#Asmara', '#Self Care', '#Umum'],
     gratitudeLabel: '🌿 Hal yang Disyukuri',
-    gratitudePlaceholder: 'Hal kecil/besar yang bikin kamu tersenyum...',
+    gratitudePlaceholder: 'Hal kecil/besar yang bikin kamu tersenum...',
     journalLabel: '💭 Curhatan / Brain Dump',
     journalPlaceholder: 'Tumpahkan semua isi pikiranmu di sini...'
   },
@@ -33,7 +33,8 @@ const contentByMode = {
       { id: 'tilawah', label: '📖 Tilawah Al-Qur\'an' },
       { id: 'dzikir_pagi', label: '📿 Dzikir Pagi' },
       { id: 'dzikir_petang', label: '📿 Dzikir Petang' },
-      { id: 'sedekah', label: '🤲 Sedekah Subuh / Harian' }
+      { id: 'sedekah', label: '🤲 Sedekah Subuh / Harian' },
+      { id: 'Haid', label: '🩸 Halangan'}
     ],
     kondisiHatiOptions: [
       '🤲 Alhamdulillah Tenang',
@@ -172,6 +173,10 @@ function App() {
     }
   };
 
+  const toggleAudio = (type) => {
+    setActiveAudio(activeAudio === type ? null : type);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -282,6 +287,8 @@ function App() {
     const matchesMood = selectedMoodFilter === 'Semua' || item.mood === selectedMoodFilter;
     return matchesSearch && matchesMood;
   });
+
+  const completedChecklistCount = Object.values(checklist).filter(Boolean).length;
 
   const moodCounts = journals.reduce((acc, curr) => {
     const m = curr.mood || 'Netral';
@@ -435,6 +442,68 @@ function App() {
           <div>
             {activeTab === 'jurnal' && (
               <>
+                <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
+                  <div>
+                    <span>⏰ Pengingat: </span>
+                    <input
+                      type="time"
+                      value={reminderTime}
+                      onChange={(e) => {
+                        setReminderTime(e.target.value);
+                        localStorage.setItem('reminder_time', e.target.value);
+                      }}
+                      style={{ borderRadius: '6px', border: 'none', padding: '4px', backgroundColor: isDarkMode ? '#1B1927' : '#EFEFEF', color: textColor }}
+                    />
+                  </div>
+                  <span style={{ fontSize: '0.75rem', color: subTextColor }}>v1.2 Active ✨</span>
+                </div>
+
+                <div className="card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                    <span>✅ KEBIASAAN HARIAN</span>
+                    <span style={{ color: subTextColor }}>{completedChecklistCount}/3 Done</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                    {activeContent.checklist ? activeContent.checklist.map(item => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setChecklist(p => ({ ...p, [item.id]: !p[item.id] }))}
+                        className="badge"
+                        style={{
+                          backgroundColor: checklist[item.id] ? primaryColor : (isDarkMode ? '#1B1927' : '#EFEFEF'),
+                          color: checklist[item.id] ? '#FFF' : textColor,
+                          textAlign: 'left',
+                          fontSize: '0.65rem',
+                          padding: '6px 8px'
+                        }}
+                      >
+                        {item.label}
+                      </button>
+                    )) : null}
+                  </div>
+                </div>
+
+                <div className="card">
+                  <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: subTextColor, display: 'block', marginBottom: '8px' }}>🎧 SUARA LATAR & RELAKSASI:</span>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {['🌧️ Hujan', '☕ Kafe', '🌊 Ombak'].map((audio) => (
+                      <button
+                        key={audio}
+                        type="button"
+                        onClick={() => toggleAudio(audio)}
+                        className="badge"
+                        style={{
+                          backgroundColor: activeAudio === audio ? primaryColor : (isDarkMode ? '#1B1927' : '#EFEFEF'),
+                          color: activeAudio === audio ? '#FFF' : textColor
+                        }}
+                      >
+                        {activeAudio === audio ? `▶️ Memutar ${audio}` : audio}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="card" style={{ textAlign: 'center', fontStyle: 'italic', fontSize: '0.85rem' }}>
                   💡 {activeContent.quote}
                 </div>
@@ -517,6 +586,23 @@ function App() {
                   ) : (
                     <>
                       <div className="card">
+                        <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: subTextColor, display: 'block', marginBottom: '8px' }}>TOPIK / KATEGORI 🏷️</span>
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                          {activeContent.topics.map(t => (
+                            <button
+                              key={t}
+                              type="button"
+                              onClick={() => setTopic(t)}
+                              className="badge"
+                              style={{
+                                backgroundColor: topic === t ? primaryColor : (isDarkMode ? '#1B1927' : '#EFEFEF'),
+                                color: topic === t ? '#FFF' : textColor
+                              }}
+                            >
+                              {t}
+                            </button>
+                          ))}
+                        </div>
                         <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: subTextColor, display: 'block', marginBottom: '10px' }}>BAGAIAMANA PERASAANMU SAAT INI?</span>
                         <div className="grid-4">
                           {[
@@ -733,6 +819,25 @@ function App() {
                     placeholder="🔍 Cari kata kunci..."
                     style={{ width: '100%', padding: '8px', borderRadius: '8px', border: 'none', backgroundColor: isDarkMode ? '#1B1927' : '#F4F5F9', color: textColor, marginBottom: '8px', boxSizing: 'border-box', fontSize: '0.75rem' }}
                   />
+
+                  <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', paddingBottom: '8px', marginBottom: '10px' }}>
+                    {['Semua', 'Semangat', 'Senang', 'Lega', 'Netral', 'Sedih/Cemas'].map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setSelectedMoodFilter(m)}
+                        className="badge"
+                        style={{
+                          backgroundColor: selectedMoodFilter === m ? primaryColor : (isDarkMode ? '#1B1927' : '#EFEFEF'),
+                          color: selectedMoodFilter === m ? '#FFF' : subTextColor,
+                          fontSize: '0.65rem',
+                          padding: '4px 8px'
+                        }}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
 
                   <div>
                     {filteredJournals.length === 0 ? (
