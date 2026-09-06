@@ -1,53 +1,71 @@
 import React, { useState } from 'react';
 
-function SpeechToText({ onTranscriptChange, theme }) {
+function SpeechToText({ onResult, theme }) {
   const [isListening, setIsListening] = useState(false);
 
-  const startListening = () => {
+  // Penanganan aman jika prop 'theme' tidak dikirim
+  const borderColor = theme?.cardBorder || '#8A70AB';
+
+  const handleListen = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
+
     if (!SpeechRecognition) {
-      alert('Browser kamu belum mendukung fitur Speech-to-Text.');
+      alert('Fitur Pengenalan Suara (Speech Recognition) tidak didukung di browser ini. Coba gunakan Google Chrome.');
       return;
     }
 
     const recognition = new SpeechRecognition();
-    recognition.lang = 'id-ID'; // Bahasa Indonesia
+    recognition.lang = 'id-ID';
     recognition.continuous = false;
     recognition.interimResults = false;
 
-    recognition.onstart = () => setIsListening(true);
-    recognition.onend = () => setIsListening(false);
-    recognition.onerror = (e) => {
-      console.error(e);
-      setIsListening(false);
+    recognition.onstart = () => {
+      setIsListening(true);
     };
 
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript;
-      onTranscriptChange(transcript);
+      if (onResult) {
+        onResult(transcript);
+      }
     };
 
-    recognition.start();
+    recognition.onerror = (event) => {
+      console.error('Error speech recognition:', event.error);
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    if (isListening) {
+      recognition.stop();
+    } else {
+      recognition.start();
+    }
   };
 
   return (
     <button
       type="button"
-      onClick={startListening}
+      onClick={handleListen}
       style={{
         padding: '6px 12px',
-        fontSize: '11px',
-        borderRadius: '8px',
-        border: `1px solid ${theme.cardBorder}`,
-        background: isListening ? '#FF5A5F' : theme.cardBg,
-        color: isListening ? '#FFF' : theme.text,
+        borderRadius: '20px',
+        border: `1px solid ${borderColor}`,
+        backgroundColor: isListening ? '#FF5252' : 'transparent',
+        color: isListening ? '#FFF' : 'inherit',
+        fontSize: '0.75rem',
         cursor: 'pointer',
-        fontWeight: 600,
-        marginBottom: '6px'
+        fontWeight: 'bold',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '4px',
+        transition: '0.2s'
       }}
     >
-      {isListening ? '🎙️ Mendengarkan...' : '🗣️ Dikte Teks (Speech-to-Text)'}
+      <span>{isListening ? '🎙️ Mendengarkan...' : '🗣️ Dikte Teks'}</span>
     </button>
   );
 }
