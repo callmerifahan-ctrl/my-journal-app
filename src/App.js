@@ -33,8 +33,7 @@ const contentByMode = {
       { id: 'tilawah', label: '📖 Tilawah Al-Qur\'an' },
       { id: 'dzikir_pagi', label: '📿 Dzikir Pagi' },
       { id: 'dzikir_petang', label: '📿 Dzikir Petang' },
-      { id: 'sedekah', label: '🤲 Sedekah Subuh / Harian' },
-      { id: 'Haid', label: '🩸 Halangan' }
+      { id: 'sedekah', label: '🤲 Sedekah Subuh / Harian' }
     ],
     kondisiHatiOptions: [
       '🤲 Alhamdulillah Tenang',
@@ -106,13 +105,11 @@ function App() {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [activeTab, setActiveTab] = useState('jurnal');
   
-  // STATE UMUM
   const [mood, setMood] = useState('Netral');
   const [topic, setTopic] = useState('#Umum');
   const [gratitude, setGratitude] = useState('');
   const [text, setText] = useState('');
   
-  // STATE ISLAMI (MUTABA'AH YAUMIFAH & OPSI)
   const [selectedSpiritualChecks, setSelectedSpiritualChecks] = useState([]);
   const [selectedKondisiHati, setSelectedKondisiHati] = useState('🤲 Alhamdulillah Tenang');
   const [doaCatatanKhusus, setDoaCatatanKhusus] = useState('');
@@ -245,28 +242,10 @@ function App() {
     setIsLoading(false);
   };
 
-  const handleEdit = (item) => {
-    setEditingId(item.id);
-    setText(item.text);
-    setMood(item.mood || 'Netral');
-    setTopic(item.category || '#Umum');
-    setPhotoUrl(item.photo_url || '');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
   const handleDelete = async (id) => {
     if (window.confirm('Apakah kamu yakin ingin menghapus catatan ini?')) {
       const { error } = await supabase.from('journals').delete().eq('id', id);
       if (!error) fetchJournals();
-    }
-  };
-
-  const handlePhotoUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setPhotoUrl(reader.result);
-      reader.readAsDataURL(file);
     }
   };
 
@@ -304,38 +283,11 @@ function App() {
     return matchesSearch && matchesMood;
   });
 
-  const photosList = journals.filter(item => item.photo_url);
-  const completedChecklistCount = Object.values(checklist).filter(Boolean).length;
-
   const moodCounts = journals.reduce((acc, curr) => {
     const m = curr.mood || 'Netral';
     acc[m] = (acc[m] || 0) + 1;
     return acc;
   }, {});
-
-  const topicCounts = journals.reduce((acc, curr) => {
-    const t = curr.category || '#Umum';
-    acc[t] = (acc[t] || 0) + 1;
-    return acc;
-  }, {});
-
-  const modeCounts = journals.reduce((acc, curr) => {
-    const m = curr.mode || 'umum';
-    acc[m] = (acc[m] || 0) + 1;
-    return acc;
-  }, {});
-
-  const gratitudeLogsCount = journals.filter(item => {
-    if (!item.text) return false;
-    const lower = item.text.toLowerCase();
-    return (
-      lower.includes('disyukuri') ||
-      lower.includes('alhamdulillah') ||
-      lower.includes('syukur') ||
-      lower.includes('terima kasih') ||
-      lower.includes('nikmat')
-    );
-  }).length;
 
   const timelineJournals = [...journals].reverse().slice(-7);
 
@@ -387,7 +339,6 @@ function App() {
 
       <div className="app-container">
         
-        {/* HEADER DENGAN TOMBOL LOGOUT */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ fontSize: '1.8rem' }}>{activeContent.icon}</span>
@@ -410,7 +361,6 @@ function App() {
           </div>
         </div>
 
-        {/* MODE SWITCHER */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '16px' }}>
           <button
             onClick={() => setMode('umum')}
@@ -428,7 +378,6 @@ function App() {
           </button>
         </div>
 
-        {/* NAVBAR */}
         <div className="card" style={{ padding: '10px 14px' }}>
           <div className="mobile-nav">
             <select
@@ -447,10 +396,8 @@ function App() {
               }}
             >
               <option value="jurnal">✍️ Jurnal</option>
-              <option value="galeri">🖼️ Galeri Foto</option>
               <option value="mind">🧘 Mind Gym</option>
               <option value="napas">🫁 Relaksasi Napas</option>
-              <option value="surat">💌 Surat Diri Masa Depan</option>
               <option value="katarsis">🔥 Ruang Katarsis</option>
               <option value="analisis">📊 Analisis & Diagram</option>
             </select>
@@ -459,10 +406,8 @@ function App() {
           <div className="desktop-nav">
             {[
               { id: 'jurnal', icon: '✍️', label: 'Jurnal' },
-              { id: 'galeri', icon: '🖼️', label: 'Galeri' },
               { id: 'mind', icon: '🧘', label: 'Mind Gym' },
               { id: 'napas', icon: '🫁', label: 'Napas' },
-              { id: 'surat', icon: '💌', label: 'Surat' },
               { id: 'katarsis', icon: '🔥', label: 'Katarsis' },
               { id: 'analisis', icon: '📊', label: 'Analisis' }
             ].map(tab => (
@@ -486,10 +431,8 @@ function App() {
           </div>
         </div>
 
-        {/* MAIN LAYOUT */}
         <div className="main-grid">
           <div>
-            {/* 1. TAB JURNAL */}
             {activeTab === 'jurnal' && (
               <>
                 <div className="card" style={{ textAlign: 'center', fontStyle: 'italic', fontSize: '0.85rem' }}>
@@ -497,8 +440,6 @@ function App() {
                 </div>
 
                 <form onSubmit={handleSubmit}>
-                  
-                  {/* TAMPILAN MODE ISLAMI: FULL CHECKLIST & OPSI */}
                   {isIslami ? (
                     <>
                       <div className="card">
@@ -574,8 +515,6 @@ function App() {
                       </div>
                     </>
                   ) : (
-                    
-                    /* TAMPILAN MODE UMUM: PENGISIAN LENGKAP */
                     <>
                       <div className="card">
                         <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: subTextColor, display: 'block', marginBottom: '10px' }}>BAGAIAMANA PERASAANMU SAAT INI?</span>
@@ -663,28 +602,6 @@ function App() {
               </>
             )}
 
-            {/* 2. TAB GALERI */}
-            {activeTab === 'galeri' && (
-              <div className="card">
-                <h3 style={{ margin: '0 0 10px 0', fontSize: '1rem' }}>🖼️ Galeri Kenangan</h3>
-                {photosList.length === 0 ? (
-                  <p style={{ color: subTextColor, fontSize: '0.8rem' }}>Belum ada foto yang diunggah ke jurnal.</p>
-                ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
-                    {photosList.map(item => (
-                      <div key={item.id} style={{ borderRadius: '10px', overflow: 'hidden', backgroundColor: isDarkMode ? '#1B1927' : '#F4F5F9' }}>
-                        <img src={item.photo_url} alt="Kenangan" style={{ width: '100%', height: '120px', objectFit: 'cover' }} />
-                        <div style={{ padding: '6px', fontSize: '0.65rem', color: subTextColor }}>
-                          📅 {new Date(item.created_at).toLocaleDateString('id-ID')}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* 3. TAB MIND GYM */}
             {activeTab === 'mind' && (
               <div className="card" style={{ textAlign: 'center', padding: '30px 20px' }}>
                 <h3>🧘 Mind Gym & Afirmasi Positif</h3>
@@ -697,7 +614,6 @@ function App() {
               </div>
             )}
 
-            {/* 4. TAB NAPAS */}
             {activeTab === 'napas' && (
               <div className="card" style={{ textAlign: 'center', padding: '30px 20px' }}>
                 <h3>🫁 Teknik Relaksasi Napas 4-7-8</h3>
@@ -729,18 +645,6 @@ function App() {
               </div>
             )}
 
-            {/* 5. TAB SURAT */}
-            {activeTab === 'surat' && (
-              <div className="card">
-                <h3>💌 Surat Untuk Diri Masa Depan</h3>
-                <textarea rows="5" placeholder="Hai diriku di masa depan..." style={{ width: '100%', padding: '10px', borderRadius: '8px', border: 'none', backgroundColor: isDarkMode ? '#1B1927' : '#F4F5F9', color: textColor, fontSize: '0.8rem' }} />
-                <button className="badge" style={{ backgroundColor: primaryColor, color: '#FFF', width: '100%', marginTop: '10px', padding: '10px' }}>
-                  Kirim ke Masa Depan ⏳
-                </button>
-              </div>
-            )}
-
-            {/* 6. TAB KATARSIS */}
             {activeTab === 'katarsis' && (
               <div className="card">
                 <h3>🔥 Ruang Katarsis (Pelepas Amarah)</h3>
@@ -751,7 +655,6 @@ function App() {
               </div>
             )}
 
-            {/* 7. TAB ANALISIS */}
             {activeTab === 'analisis' && (
               <div>
                 <div className="card">
@@ -810,7 +713,6 @@ function App() {
             )}
           </div>
 
-          {/* KOLOM RIWAYAT JURNAL */}
           <div>
             <div className="card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
