@@ -121,7 +121,6 @@ function App() {
   const [selectedKondisiHati, setSelectedKondisiHati] = useState('🤲 Alhamdulillah Tenang');
   const [doaCatatanKhusus, setDoaCatatanKhusus] = useState('');
 
-  const [photoUrl, setPhotoUrl] = useState('');
   const [journals, setJournals] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -215,10 +214,10 @@ function App() {
         const { error } = await supabase
           .from('journals')
           .update({
-            text: fullContent,
+            brain_dump: fullContent,
+            gratitude: gratitude,
             mood: recordMood,
-            category: isIslami ? '#Ibadah' : topic,
-            photo_url: photoUrl
+            category: isIslami ? '#Ibadah' : topic
           })
           .eq('id', editingId);
 
@@ -228,12 +227,13 @@ function App() {
 
         const { error } = await supabase.from('journals').insert([
           {
-            text: fullContent,
+            brain_dump: fullContent,
+            gratitude: gratitude,
             mood: recordMood,
             mode: mode,
             category: isIslami ? '#Ibadah' : topic,
             ai_insight: aiResponse,
-            photo_url: photoUrl
+            amalan: isIslami ? selectedSpiritualChecks : null
           }
         ]);
 
@@ -245,7 +245,6 @@ function App() {
       setGratitude('');
       setDoaCatatanKhusus('');
       setSelectedSpiritualChecks([]);
-      setPhotoUrl('');
       await fetchJournals();
       setShowHistory(true);
     } catch (err) {
@@ -290,7 +289,7 @@ function App() {
   };
 
   const filteredJournals = journals.filter(item => {
-    const itemText = item.text ? item.text.toLowerCase() : '';
+    const itemText = item.brain_dump ? item.brain_dump.toLowerCase() : '';
     const matchesSearch = itemText.includes(searchQuery.toLowerCase());
     const matchesMood = selectedMoodFilter === 'Semua' || item.mood === selectedMoodFilter;
     return matchesSearch && matchesMood;
@@ -915,7 +914,7 @@ function App() {
                             <span>{item.mood}</span>
                           </div>
 
-                          <p style={{ fontSize: '0.8rem', margin: '4px 0', whiteSpace: 'pre-line' }}>{item.text}</p>
+                          <p style={{ fontSize: '0.8rem', margin: '4px 0', whiteSpace: 'pre-line' }}>{item.brain_dump}</p>
 
                           {item.ai_insight && (
                             <div style={{ marginTop: '8px', padding: '8px', backgroundColor: item.mode === 'islami' ? '#4E7D5B22' : '#8A70AB22', borderRadius: '6px', fontSize: '0.75rem', color: item.mode === 'islami' ? '#81C784' : '#B39DDB' }}>
