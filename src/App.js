@@ -14,7 +14,7 @@ const contentByMode = {
     ],
     topics: ['#Pekerjaan', '#Kuliah/Sekolah', '#Keluarga', '#Asmara', '#Self Care', '#Umum'],
     gratitudeLabel: '🌿 Hal yang Disyukuri',
-    gratitudePlaceholder: 'Hal kecil/besar yang bikin kamu tersenum...',
+    gratitudePlaceholder: 'Hal kecil/besar yang bikin kamu tersenyum...',
     journalLabel: '💭 Curhatan / Brain Dump',
     journalPlaceholder: 'Tumpahkan semua isi pikiranmu di sini...'
   },
@@ -34,7 +34,7 @@ const contentByMode = {
       { id: 'dzikir_pagi', label: '📿 Dzikir Pagi' },
       { id: 'dzikir_petang', label: '📿 Dzikir Petang' },
       { id: 'sedekah', label: '🤲 Sedekah Subuh / Harian' },
-      { id: 'Haid', label: '🩸 Halangan'}
+      { id: 'Haid', label: '🩸 Halangan' }
     ],
     kondisiHatiOptions: [
       '🤲 Alhamdulillah Tenang',
@@ -58,6 +58,7 @@ const moodIcons = {
 
 async function getAiInsight(isiJurnal, mode) {
   const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
+  if (!GEMINI_API_KEY) return "AI sedang istirahat hari ini ✨";
 
   const promptUmum = `
     Kamu adalah seorang teman & konselor psikologi yang sangat empatik dan hangat.
@@ -78,21 +79,26 @@ async function getAiInsight(isiJurnal, mode) {
   `;
 
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           contents: [{ parts: [{ text: mode === 'islami' ? promptIslami : promptUmum }] }]
         })
       }
     );
 
+    clearTimeout(timeoutId);
     const data = await response.json();
-    return data.candidates[0].content.parts[0].text;
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
   } catch (error) {
-    console.error("Gagal mengambil AI insight:", error);
+    console.error("AI Timeout / Error:", error);
     return null;
   }
 }
@@ -195,56 +201,58 @@ function App() {
       }
       recordMood = selectedKondisiHati.split(' ')[1] || 'Lega';
     } else {
-      if (!text.trim()) return;
+      if (!text.trim() && !gratitude.trim()) {
+        alert('Mohon isi catatan jurnal atau hal yang disyukuri terlebih dahulu!');
+        return;
+      }
       fullContent = gratitude ? `[${activeContent.gratitudeLabel}]: ${gratitude}\n[${activeContent.journalLabel}]: ${text}` : text;
     }
 
     setIsLoading(true);
 
-    if (editingId) {
-      const { error } = await supabase
-        .from('journals')
-        .update({
-          text: fullContent,
-          mood: recordMood,
-          category: isIslami ? '#Ibadah' : topic,
-          photo_url: photoUrl
-        })
-        .eq('id', editingId);
+    try {
+      if (editingId) {
+        const { error } = await supabase
+          .from('journals')
+          .update({
+            text: fullContent,
+            mood: recordMood,
+            category: isIslami ? '#Ibadah' : topic,
+            photo_url: photoUrl
+          })
+          .eq('id', editingId);
 
-      if (!error) {
-        setEditingId(null);
-        setText('');
-        setGratitude('');
-        setDoaCatatanKhusus('');
-        setPhotoUrl('');
-        fetchJournals();
+        if (error) alert("Gagal memperbarui: " + error.message);
+      } else {
+        const aiResponse = await getAiInsight(fullContent, mode);
+
+        const { error } = await supabase.from('journals').insert([
+          {
+            text: fullContent,
+            mood: recordMood,
+            mode: mode,
+            category: isIslami ? '#Ibadah' : topic,
+            ai_insight: aiResponse,
+            photo_url: photoUrl
+          }
+        ]);
+
+        if (error) alert("Gagal menyimpan ke database: " + error.message);
       }
-    } else {
-      const aiResponse = await getAiInsight(fullContent, mode);
 
-      const { error } = await supabase.from('journals').insert([
-        {
-          text: fullContent,
-          mood: recordMood,
-          mode: mode,
-          category: isIslami ? '#Ibadah' : topic,
-          ai_insight: aiResponse,
-          photo_url: photoUrl
-        }
-      ]);
-
-      if (!error) {
-        setText('');
-        setGratitude('');
-        setDoaCatatanKhusus('');
-        setSelectedSpiritualChecks([]);
-        setPhotoUrl('');
-        fetchJournals();
-        setShowHistory(true);
-      }
+      setEditingId(null);
+      setText('');
+      setGratitude('');
+      setDoaCatatanKhusus('');
+      setSelectedSpiritualChecks([]);
+      setPhotoUrl('');
+      await fetchJournals();
+      setShowHistory(true);
+    } catch (err) {
+      alert("Terjadi kesalahan sistem: " + err.message);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const handleDelete = async (id) => {
@@ -328,12 +336,60 @@ function App() {
     <div style={{ backgroundColor: bgColor, color: textColor, minHeight: '100vh', padding: '20px 12px', fontFamily: 'system-ui, sans-serif' }}>
       
       <style>{`
-        .app-container { max-width: 900px; margin: 0 auto; }
-        .main-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
-        @media (min-width: 768px) { .main-grid { grid-template-columns: 1.1fr 0.9fr; } }
-        .card { background-color: ${cardBg}; border-radius: 16px; padding: 16px; margin-bottom: 14px; }
-        .badge { padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; border: none; cursor: pointer; }
-        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        * {
+          box-sizing: border-box;
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+          margin: 0;
+          padding: 0;
+          width: 100%;
+          overflow-x: hidden;
+          touch-action: manipulation;
+        }
+
+        .app-container {
+          width: 100%;
+          max-width: 900px;
+          margin: 0 auto;
+          padding: 0 4px;
+          overflow-x: hidden;
+        }
+
+        .main-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 16px;
+          width: 100%;
+        }
+
+        @media (min-width: 768px) {
+          .main-grid { grid-template-columns: 1.1fr 0.9fr; }
+        }
+
+        .card {
+          background-color: ${cardBg};
+          border-radius: 16px;
+          padding: 16px;
+          margin-bottom: 14px;
+          width: 100%;
+          box-sizing: border-box;
+        }
+
+        .badge {
+          padding: 6px 14px;
+          border-radius: 20px;
+          font-size: 0.8rem;
+          border: none;
+          cursor: pointer;
+        }
+
+        .grid-4 {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 8px;
+        }
         
         .mobile-nav { display: block; }
         .desktop-nav { display: none; }
