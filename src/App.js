@@ -121,6 +121,7 @@ function App() {
   const [selectedKondisiHati, setSelectedKondisiHati] = useState('🤲 Alhamdulillah Tenang');
   const [doaCatatanKhusus, setDoaCatatanKhusus] = useState('');
 
+  const [photoUrl, setPhotoUrl] = useState('');
   const [journals, setJournals] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -216,7 +217,8 @@ function App() {
         gratitude: gratitude,
         mood: recordMood,
         mode: mode,
-        category: isIslami ? '#Ibadah' : topic
+        category: isIslami ? '#Ibadah' : topic,
+        photo_url: Boolean(photoUrl)
       };
 
       if (editingId) {
@@ -241,6 +243,7 @@ function App() {
       setGratitude('');
       setDoaCatatanKhusus('');
       setSelectedSpiritualChecks([]);
+      setPhotoUrl('');
       await fetchJournals();
       setShowHistory(true);
     } catch (err) {
