@@ -210,32 +210,28 @@ function App() {
     setIsLoading(true);
 
     try {
+      const payload = {
+        text: fullContent,
+        brain_dump: fullContent,
+        gratitude: gratitude,
+        mood: recordMood,
+        mode: mode,
+        category: isIslami ? '#Ibadah' : topic
+      };
+
       if (editingId) {
         const { error } = await supabase
           .from('journals')
-          .update({
-            brain_dump: fullContent,
-            gratitude: gratitude,
-            mood: recordMood,
-            category: isIslami ? '#Ibadah' : topic
-          })
+          .update(payload)
           .eq('id', editingId);
 
         if (error) alert("Gagal memperbarui: " + error.message);
       } else {
         const aiResponse = await getAiInsight(fullContent, mode);
+        payload.ai_insight = aiResponse;
+        payload.amalan = isIslami ? selectedSpiritualChecks : null;
 
-        const { error } = await supabase.from('journals').insert([
-          {
-            brain_dump: fullContent,
-            gratitude: gratitude,
-            mood: recordMood,
-            mode: mode,
-            category: isIslami ? '#Ibadah' : topic,
-            ai_insight: aiResponse,
-            amalan: isIslami ? selectedSpiritualChecks : null
-          }
-        ]);
+        const { error } = await supabase.from('journals').insert([payload]);
 
         if (error) alert("Gagal menyimpan ke database: " + error.message);
       }
@@ -289,7 +285,7 @@ function App() {
   };
 
   const filteredJournals = journals.filter(item => {
-    const itemText = item.brain_dump ? item.brain_dump.toLowerCase() : '';
+    const itemText = (item.text || item.brain_dump || '').toLowerCase();
     const matchesSearch = itemText.includes(searchQuery.toLowerCase());
     const matchesMood = selectedMoodFilter === 'Semua' || item.mood === selectedMoodFilter;
     return matchesSearch && matchesMood;
@@ -914,7 +910,7 @@ function App() {
                             <span>{item.mood}</span>
                           </div>
 
-                          <p style={{ fontSize: '0.8rem', margin: '4px 0', whiteSpace: 'pre-line' }}>{item.brain_dump}</p>
+                          <p style={{ fontSize: '0.8rem', margin: '4px 0', whiteSpace: 'pre-line' }}>{item.text || item.brain_dump}</p>
 
                           {item.ai_insight && (
                             <div style={{ marginTop: '8px', padding: '8px', backgroundColor: item.mode === 'islami' ? '#4E7D5B22' : '#8A70AB22', borderRadius: '6px', fontSize: '0.75rem', color: item.mode === 'islami' ? '#81C784' : '#B39DDB' }}>
