@@ -22,6 +22,11 @@ const contentByMode = {
     title: "Jurnal Hati & Mutaba'ah Yaumiyah",
     icon: "🕌",
     quote: '"Ingatlah, hanya dengan mengingat Allah hati menjadi tenteram. (QS. Ar-Ra\'d: 28) 🌱"',
+    checklist: [
+      { id: 'water_niat', label: '💧 Minum Air Niat Sunnah' },
+      { id: 'sedekah_subuh', label: '🪙 Sedekah Subuh' },
+      { id: 'al_mulk', label: '📖 Baca Al-Mulk Sebelum Tidur' }
+    ],
     checklistSpiritual: [
       { id: 'subuh', label: '🕌 Shalat Subuh' },
       { id: 'dzuhur', label: '🕌 Shalat Dzuhur' },
@@ -140,7 +145,10 @@ function App() {
   const [checklist, setChecklist] = useState({
     water: false,
     sleep: false,
-    read: false
+    read: false,
+    water_niat: false,
+    sedekah_subuh: false,
+    al_mulk: false
   });
 
   const activeContent = contentByMode[mode];
@@ -294,7 +302,8 @@ function App() {
     return matchesSearch && matchesMood;
   });
 
-  const completedChecklistCount = Object.values(checklist).filter(Boolean).length;
+  const activeChecklistItems = activeContent.checklist || [];
+  const completedChecklistCount = activeChecklistItems.filter(item => checklist[item.id]).length;
 
   const moodCounts = journals.reduce((acc, curr) => {
     const m = curr.mood || 'Netral';
@@ -515,10 +524,10 @@ function App() {
                 <div className="card">
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '0.8rem', fontWeight: 'bold' }}>
                     <span>✅ KEBIASAAN HARIAN</span>
-                    <span style={{ color: subTextColor }}>{completedChecklistCount}/3 Done</span>
+                    <span style={{ color: subTextColor }}>{completedChecklistCount}/{activeChecklistItems.length} Done</span>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
-                    {activeContent.checklist ? activeContent.checklist.map(item => (
+                    {activeChecklistItems.map(item => (
                       <button
                         key={item.id}
                         type="button"
@@ -534,7 +543,7 @@ function App() {
                       >
                         {item.label}
                       </button>
-                    )) : null}
+                    ))}
                   </div>
                 </div>
 
