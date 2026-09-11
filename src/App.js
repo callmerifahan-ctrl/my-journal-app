@@ -510,14 +510,6 @@ function App() {
           gap: 8px;
         }
 
-        .mobile-nav { display: block; }
-        .desktop-nav { display: none; }
-
-        @media (min-width: 768px) {
-          .mobile-nav { display: none; }
-          .desktop-nav { display: flex; gap: 6px; justify-content: space-between; overflow-x: auto; }
-        }
-
         .bottom-nav {
           position: fixed;
           bottom: 0;
@@ -607,64 +599,6 @@ function App() {
           >
             🕌 Mode Islami
           </button>
-        </div>
-
-        {/* --- NAVIGASI DROPDOWN MOBILE & TABS DESKTOP --- */}
-        <div className="card" style={{ padding: '10px 14px' }}>
-          <div className="mobile-nav">
-            <select
-              value={activeTab}
-              onChange={(e) => setActiveTab(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                borderRadius: '10px',
-                border: `1px solid ${primaryColor}`,
-                backgroundColor: isDarkMode ? '#1B1927' : '#F4F5F9',
-                color: textColor,
-                fontSize: '0.85rem',
-                fontWeight: 'bold',
-                outline: 'none'
-              }}
-            >
-              <option value="jurnal">✍️ Jurnal</option>
-              <option value="peta_pikiran">🧠 Peta Kendali Pikiran</option>
-              <option value="wishlist">🎯 Wishlist & Impian</option>
-              <option value="kapsul">⏳ Kapsul Waktu</option>
-              <option value="momen">📸 Momen Manis</option>
-              <option value="katarsis">🔥 Ruang Katarsis</option>
-              <option value="analisis">📊 Analisis & Diagram</option>
-            </select>
-          </div>
-
-          <div className="desktop-nav">
-            {[
-              { id: 'jurnal', icon: '✍️', label: 'Jurnal' },
-              { id: 'peta_pikiran', icon: '🧠', label: 'Kendali' },
-              { id: 'wishlist', icon: '🎯', label: 'Wishlist' },
-              { id: 'kapsul', icon: '⏳', label: 'Kapsul' },
-              { id: 'momen', icon: '📸', label: 'Momen' },
-              { id: 'katarsis', icon: '🔥', label: 'Katarsis' },
-              { id: 'analisis', icon: '📊', label: 'Analisis' }
-            ].map(tab => (
-              <div
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                style={{
-                  padding: '8px 10px',
-                  borderRadius: '10px',
-                  cursor: 'pointer',
-                  fontSize: '0.75rem',
-                  backgroundColor: activeTab === tab.id ? primaryColor : 'transparent',
-                  color: activeTab === tab.id ? '#FFF' : textColor,
-                  fontWeight: activeTab === tab.id ? 'bold' : 'normal',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                {tab.icon} {tab.label}
-              </div>
-            ))}
-          </div>
         </div>
 
         <div className="main-grid">
