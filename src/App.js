@@ -161,6 +161,15 @@ function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
+  // --- STATE MOMEN MANIS ---
+  const [sweetMemoryInput, setSweetMemoryInput] = useState('');
+  const [sweetMemories, setSweetMemories] = useState(() => {
+    const saved = localStorage.getItem('app_sweet_memories');
+    return saved ? JSON.parse(saved) : [
+      { id: 1, text: 'Minum kopi hangat pas lagi hujan kencang ✨', date: '2026-09-10' }
+    ];
+  });
+
   useEffect(() => {
     localStorage.setItem('mind_maps', JSON.stringify(mindMaps));
   }, [mindMaps]);
@@ -172,6 +181,10 @@ function App() {
   useEffect(() => {
     localStorage.setItem('app_capsules', JSON.stringify(capsules));
   }, [capsules]);
+
+  useEffect(() => {
+    localStorage.setItem('app_sweet_memories', JSON.stringify(sweetMemories));
+  }, [sweetMemories]);
 
   const addMindMap = (e) => {
     e.preventDefault();
@@ -217,6 +230,17 @@ function App() {
 
   const deleteCapsule = (id) => {
     setCapsules(capsules.filter(item => item.id !== id));
+  };
+
+  const addSweetMemory = (e) => {
+    e.preventDefault();
+    if (!sweetMemoryInput.trim()) return;
+    setSweetMemories([...sweetMemories, { id: Date.now(), text: sweetMemoryInput, date: new Date().toISOString().split('T')[0] }]);
+    setSweetMemoryInput('');
+  };
+
+  const deleteSweetMemory = (id) => {
+    setSweetMemories(sweetMemories.filter(item => item.id !== id));
   };
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -486,6 +510,14 @@ function App() {
           gap: 8px;
         }
 
+        .mobile-nav { display: block; }
+        .desktop-nav { display: none; }
+
+        @media (min-width: 768px) {
+          .mobile-nav { display: none; }
+          .desktop-nav { display: flex; gap: 6px; justify-content: space-between; overflow-x: auto; }
+        }
+
         .bottom-nav {
           position: fixed;
           bottom: 0;
@@ -521,13 +553,13 @@ function App() {
         }
 
         .bottom-nav-icon-bg {
-          width: 36px;
-          height: 36px;
-          border-radius: 12px;
+          width: 32px;
+          height: 32px;
+          border-radius: 10px;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 1.2rem;
+          font-size: 1.1rem;
           margin-bottom: 2px;
         }
 
@@ -575,6 +607,64 @@ function App() {
           >
             🕌 Mode Islami
           </button>
+        </div>
+
+        {/* --- NAVIGASI DROPDOWN MOBILE & TABS DESKTOP --- */}
+        <div className="card" style={{ padding: '10px 14px' }}>
+          <div className="mobile-nav">
+            <select
+              value={activeTab}
+              onChange={(e) => setActiveTab(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: '10px',
+                border: `1px solid ${primaryColor}`,
+                backgroundColor: isDarkMode ? '#1B1927' : '#F4F5F9',
+                color: textColor,
+                fontSize: '0.85rem',
+                fontWeight: 'bold',
+                outline: 'none'
+              }}
+            >
+              <option value="jurnal">✍️ Jurnal</option>
+              <option value="peta_pikiran">🧠 Peta Kendali Pikiran</option>
+              <option value="wishlist">🎯 Wishlist & Impian</option>
+              <option value="kapsul">⏳ Kapsul Waktu</option>
+              <option value="momen">📸 Momen Manis</option>
+              <option value="katarsis">🔥 Ruang Katarsis</option>
+              <option value="analisis">📊 Analisis & Diagram</option>
+            </select>
+          </div>
+
+          <div className="desktop-nav">
+            {[
+              { id: 'jurnal', icon: '✍️', label: 'Jurnal' },
+              { id: 'peta_pikiran', icon: '🧠', label: 'Kendali' },
+              { id: 'wishlist', icon: '🎯', label: 'Wishlist' },
+              { id: 'kapsul', icon: '⏳', label: 'Kapsul' },
+              { id: 'momen', icon: '📸', label: 'Momen' },
+              { id: 'katarsis', icon: '🔥', label: 'Katarsis' },
+              { id: 'analisis', icon: '📊', label: 'Analisis' }
+            ].map(tab => (
+              <div
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                style={{
+                  padding: '8px 10px',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  fontSize: '0.75rem',
+                  backgroundColor: activeTab === tab.id ? primaryColor : 'transparent',
+                  color: activeTab === tab.id ? '#FFF' : textColor,
+                  fontWeight: activeTab === tab.id ? 'bold' : 'normal',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {tab.icon} {tab.label}
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="main-grid">
@@ -853,7 +943,7 @@ function App() {
                         <option value="Barang">🛍️ Barang</option>
                         <option value="Travel">✈️ Travel / Liburan</option>
                         <option value="Karir">💼 Karir / Skill</option>
-                        <option value="Spiritual">🕌 Spiritual / Ibada</option>
+                        <option value="Spiritual">🕌 Spiritual / Ibadah</option>
                       </select>
                       <button
                         type="submit"
@@ -872,7 +962,7 @@ function App() {
                         <span style={{ fontSize: '0.65rem', backgroundColor: primaryColor + '33', color: primaryColor, padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>{item.category}</span>
                         <h4 style={{ margin: '4px 0 0 0', fontSize: '0.9rem' }}>{item.title}</h4>
                       </div>
-                      <button onClick={() => deleteWishlist(item.id)} style={{ border: 'none', background: 'none', color: '#FF5252', cursor: 'pointer', fontSize: '0.75rem' }}>✕</button>
+                      <button onClick={() => deleteWishlist(item.id)} style={{ border: 'none', background: 'none', color: '#FF5252', cursor: 'pointer', fontSize: '0.75rem' }}>✕ Hapus</button>
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
@@ -960,6 +1050,44 @@ function App() {
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* --- TAB MOMEN MANIS --- */}
+            {activeTab === 'momen' && (
+              <div>
+                <div className="card" style={{ textAlign: 'center' }}>
+                  <h3 style={{ margin: '0 0 6px 0', fontSize: '1.1rem' }}>📸 Momen Manis & Gratitude Log</h3>
+                  <p style={{ fontSize: '0.75rem', color: subTextColor, margin: 0 }}>Simpan momen-momen kecil yang bikin senyum hari ini!</p>
+                </div>
+
+                <div className="card">
+                  <form onSubmit={addSweetMemory} style={{ display: 'flex', gap: '8px' }}>
+                    <input
+                      type="text"
+                      value={sweetMemoryInput}
+                      onChange={(e) => setSweetMemoryInput(e.target.value)}
+                      placeholder="Tulis momen manis hari ini..."
+                      style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', backgroundColor: isDarkMode ? '#1B1927' : '#F4F5F9', color: textColor, fontSize: '0.8rem' }}
+                    />
+                    <button
+                      type="submit"
+                      style={{ padding: '10px 16px', borderRadius: '8px', border: 'none', backgroundColor: primaryColor, color: '#FFF', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer' }}
+                    >
+                      + Simpan
+                    </button>
+                  </form>
+                </div>
+
+                {sweetMemories.map((item) => (
+                  <div key={item.id} className="card" style={{ marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <small style={{ color: subTextColor, fontSize: '0.65rem' }}>📅 {item.date}</small>
+                      <p style={{ margin: '2px 0 0 0', fontSize: '0.85rem' }}>{item.text}</p>
+                    </div>
+                    <button onClick={() => deleteSweetMemory(item.id)} style={{ border: 'none', background: 'none', color: '#FF5252', cursor: 'pointer', fontSize: '0.75rem' }}>🗑️</button>
+                  </div>
+                ))}
               </div>
             )}
 
@@ -1179,27 +1307,32 @@ function App() {
       <div className="bottom-nav">
         <button className={`bottom-nav-item ${activeTab === 'jurnal' ? 'active' : ''}`} onClick={() => setActiveTab('jurnal')}>
           <div className="bottom-nav-icon-bg">📝</div>
-          <span style={{ fontSize: '0.6rem' }}>Jurnal</span>
+          <span style={{ fontSize: '0.55rem' }}>Jurnal</span>
         </button>
 
         <button className={`bottom-nav-item ${activeTab === 'peta_pikiran' ? 'active' : ''}`} onClick={() => setActiveTab('peta_pikiran')}>
           <div className="bottom-nav-icon-bg">🧠</div>
-          <span style={{ fontSize: '0.6rem' }}>Kendali</span>
+          <span style={{ fontSize: '0.55rem' }}>Kendali</span>
         </button>
 
         <button className={`bottom-nav-item ${activeTab === 'wishlist' ? 'active' : ''}`} onClick={() => setActiveTab('wishlist')}>
           <div className="bottom-nav-icon-bg">🎯</div>
-          <span style={{ fontSize: '0.6rem' }}>Wishlist</span>
+          <span style={{ fontSize: '0.55rem' }}>Wishlist</span>
         </button>
 
         <button className={`bottom-nav-item ${activeTab === 'kapsul' ? 'active' : ''}`} onClick={() => setActiveTab('kapsul')}>
           <div className="bottom-nav-icon-bg">⏳</div>
-          <span style={{ fontSize: '0.6rem' }}>Kapsul</span>
+          <span style={{ fontSize: '0.55rem' }}>Kapsul</span>
+        </button>
+
+        <button className={`bottom-nav-item ${activeTab === 'momen' ? 'active' : ''}`} onClick={() => setActiveTab('momen')}>
+          <div className="bottom-nav-icon-bg">📸</div>
+          <span style={{ fontSize: '0.55rem' }}>Momen</span>
         </button>
 
         <button className={`bottom-nav-item ${activeTab === 'analisis' ? 'active' : ''}`} onClick={() => setActiveTab('analisis')}>
           <div className="bottom-nav-icon-bg">📊</div>
-          <span style={{ fontSize: '0.6rem' }}>Analisis</span>
+          <span style={{ fontSize: '0.55rem' }}>Analisis</span>
         </button>
       </div>
 
