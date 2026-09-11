@@ -130,7 +130,40 @@ function App() {
   const [journals, setJournals] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  
+
+  // --- STATE PEMETAAN KENDALI PIKIRAN ---
+  const [newMindInput, setNewMindInput] = useState('');
+  const [mindMaps, setMindMaps] = useState(() => {
+    const saved = localStorage.getItem('mind_maps');
+    return saved ? JSON.parse(saved) : [
+      { id: 1, title: 'Kerjaan stuck', status: 'bisa' },
+      { id: 2, title: 'Keuangan gak lancar', status: 'usaha' },
+      { id: 3, title: 'Ortu udah tambah tua', status: 'luar' },
+      { id: 4, title: 'Pengen punya skill lain', status: 'bisa' },
+      { id: 5, title: 'Tidur berantakan', status: 'bisa' }
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('mind_maps', JSON.stringify(mindMaps));
+  }, [mindMaps]);
+
+  const addMindMap = (e) => {
+    e.preventDefault();
+    if (!newMindInput.trim()) return;
+    const newItem = { id: Date.now(), title: newMindInput, status: 'bisa' };
+    setMindMaps([...mindMaps, newItem]);
+    setNewMindInput('');
+  };
+
+  const updateMindStatus = (id, status) => {
+    setMindMaps(mindMaps.map(item => item.id === id ? { ...item, status } : item));
+  };
+
+  const deleteMindMap = (id) => {
+    setMindMaps(mindMaps.filter(item => item.id !== id));
+  };
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMoodFilter, setSelectedMoodFilter] = useState('Semua');
   const [activeAudio, setActiveAudio] = useState(null);
@@ -340,7 +373,7 @@ function App() {
   }
 
   return (
-    <div style={{ backgroundColor: bgColor, color: textColor, minHeight: '100vh', padding: '20px 12px', fontFamily: 'system-ui, sans-serif' }}>
+    <div style={{ backgroundColor: bgColor, color: textColor, minHeight: '100vh', padding: '20px 12px 80px 12px', fontFamily: 'system-ui, sans-serif' }}>
       
       <style>{`
         * {
@@ -397,13 +430,55 @@ function App() {
           grid-template-columns: repeat(4, 1fr);
           gap: 8px;
         }
-        
-        .mobile-nav { display: block; }
-        .desktop-nav { display: none; }
 
-        @media (min-width: 768px) {
-          .mobile-nav { display: none; }
-          .desktop-nav { display: flex; gap: 8px; justify-content: space-between; }
+        /* BOTTOM NAVBAR MOBILE FIX */
+        .bottom-nav {
+          position: fixed;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 65px;
+          background-color: ${isDarkMode ? '#252336' : '#FFFFFF'};
+          border-top: 1px solid ${isDarkMode ? '#333148' : '#E0E0E0'};
+          display: flex;
+          justify-content: space-around;
+          align-items: center;
+          z-index: 999;
+          box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        }
+
+        .bottom-nav-item {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          flex: 1;
+          height: 100%;
+          background: none;
+          border: none;
+          color: ${subTextColor};
+          cursor: pointer;
+          transition: 0.2s;
+        }
+
+        .bottom-nav-item.active {
+          color: ${primaryColor};
+          font-weight: bold;
+        }
+
+        .bottom-nav-icon-bg {
+          width: 36px;
+          height: 36px;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.2rem;
+          margin-bottom: 2px;
+        }
+
+        .bottom-nav-item.active .bottom-nav-icon-bg {
+          background-color: ${primaryColor}22;
         }
       `}</style>
 
@@ -446,59 +521,6 @@ function App() {
           >
             🕌 Mode Islami
           </button>
-        </div>
-
-        <div className="card" style={{ padding: '10px 14px' }}>
-          <div className="mobile-nav">
-            <select
-              value={activeTab}
-              onChange={(e) => setActiveTab(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                borderRadius: '10px',
-                border: `1px solid ${primaryColor}`,
-                backgroundColor: isDarkMode ? '#1B1927' : '#F4F5F9',
-                color: textColor,
-                fontSize: '0.85rem',
-                fontWeight: 'bold',
-                outline: 'none'
-              }}
-            >
-              <option value="jurnal">✍️ Jurnal</option>
-              <option value="mind">🧘 Mind Gym</option>
-              <option value="napas">🫁 Relaksasi Napas</option>
-              <option value="katarsis">🔥 Ruang Katarsis</option>
-              <option value="analisis">📊 Analisis & Diagram</option>
-            </select>
-          </div>
-
-          <div className="desktop-nav">
-            {[
-              { id: 'jurnal', icon: '✍️', label: 'Jurnal' },
-              { id: 'mind', icon: '🧘', label: 'Mind Gym' },
-              { id: 'napas', icon: '🫁', label: 'Napas' },
-              { id: 'katarsis', icon: '🔥', label: 'Katarsis' },
-              { id: 'analisis', icon: '📊', label: 'Analisis' }
-            ].map(tab => (
-              <div
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                style={{
-                  padding: '8px 12px',
-                  borderRadius: '10px',
-                  cursor: 'pointer',
-                  fontSize: '0.75rem',
-                  backgroundColor: activeTab === tab.id ? primaryColor : 'transparent',
-                  color: activeTab === tab.id ? '#FFF' : textColor,
-                  fontWeight: activeTab === tab.id ? 'bold' : 'normal',
-                  transition: '0.2s'
-                }}
-              >
-                {tab.icon} {tab.label}
-              </div>
-            ))}
-          </div>
         </div>
 
         <div className="main-grid">
@@ -751,6 +773,129 @@ function App() {
               </>
             )}
 
+            {/* --- TAB PEMETAAN PIKIRAN & KENDALI --- */}
+            {activeTab === 'peta_pikiran' && (
+              <div>
+                <div className="card" style={{ textAlign: 'center' }}>
+                  <h3 style={{ margin: '0 0 6px 0', fontSize: '1.1rem' }}>🧠 Memetakan Emosi & Pikiran</h3>
+                  <p style={{ fontSize: '0.75rem', color: subTextColor, margin: 0 }}>
+                    Kelompokkan beban pikiranmu agar kamu tahu mana yang bisa diubah dan mana yang perlu dilepaskan.
+                  </p>
+                </div>
+
+                <div className="card">
+                  <form onSubmit={addMindMap} style={{ display: 'flex', gap: '8px' }}>
+                    <input
+                      type="text"
+                      value={newMindInput}
+                      onChange={(e) => setNewMindInput(e.target.value)}
+                      placeholder="Tulis beban pikiran/masalah (misal: Keuangan gak lancar)..."
+                      style={{
+                        flex: 1,
+                        padding: '10px 12px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        backgroundColor: isDarkMode ? '#1B1927' : '#F4F5F9',
+                        color: textColor,
+                        fontSize: '0.8rem'
+                      }}
+                    />
+                    <button
+                      type="submit"
+                      style={{
+                        padding: '10px 16px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        backgroundColor: primaryColor,
+                        color: '#FFF',
+                        fontWeight: 'bold',
+                        fontSize: '0.8rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      + Tambah
+                    </button>
+                  </form>
+                </div>
+
+                {mindMaps.map((item) => (
+                  <div
+                    key={item.id}
+                    className="card"
+                    style={{
+                      marginBottom: '10px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '10px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{item.title}</span>
+                      <button
+                        onClick={() => deleteMindMap(item.id)}
+                        style={{ border: 'none', background: 'none', color: '#FF5252', cursor: 'pointer', fontSize: '0.75rem' }}
+                      >
+                        ✕ Hapus
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                      <button
+                        type="button"
+                        onClick={() => updateMindStatus(item.id, 'bisa')}
+                        style={{
+                          padding: '8px 4px',
+                          borderRadius: '20px',
+                          border: item.status === 'bisa' ? '2px solid #4CAF50' : 'none',
+                          backgroundColor: item.status === 'bisa' ? '#4CAF50' : (isDarkMode ? '#1B1927' : '#EFEFEF'),
+                          color: item.status === 'bisa' ? '#FFF' : subTextColor,
+                          fontSize: '0.65rem',
+                          fontWeight: 'bold',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Bisa kukerjakan
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => updateMindStatus(item.id, 'usaha')}
+                        style={{
+                          padding: '8px 4px',
+                          borderRadius: '20px',
+                          border: item.status === 'usaha' ? '2px solid #FF9800' : 'none',
+                          backgroundColor: item.status === 'usaha' ? '#FF9800' : (isDarkMode ? '#1B1927' : '#EFEFEF'),
+                          color: item.status === 'usaha' ? '#FFF' : subTextColor,
+                          fontSize: '0.65rem',
+                          fontWeight: 'bold',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Perlu usaha lebih
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => updateMindStatus(item.id, 'luar')}
+                        style={{
+                          padding: '8px 4px',
+                          borderRadius: '20px',
+                          border: item.status === 'luar' ? '2px solid #E53935' : 'none',
+                          backgroundColor: item.status === 'luar' ? '#E53935' : (isDarkMode ? '#1B1927' : '#EFEFEF'),
+                          color: item.status === 'luar' ? '#FFF' : subTextColor,
+                          fontSize: '0.65rem',
+                          fontWeight: 'bold',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Di luar kendaliku
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {activeTab === 'mind' && (
               <div className="card" style={{ textAlign: 'center', padding: '30px 20px' }}>
                 <h3>🧘 Mind Gym & Afirmasi Positif</h3>
@@ -944,6 +1089,42 @@ function App() {
           </div>
         </div>
       </div>
+
+      {/* --- BOTTOM NAVBAR MOBILE FIXED --- */}
+      <div className="bottom-nav">
+        <button
+          className={`bottom-nav-item ${activeTab === 'jurnal' ? 'active' : ''}`}
+          onClick={() => setActiveTab('jurnal')}
+        >
+          <div className="bottom-nav-icon-bg">📝</div>
+          <span style={{ fontSize: '0.65rem' }}>Jurnal</span>
+        </button>
+
+        <button
+          className={`bottom-nav-item ${activeTab === 'peta_pikiran' ? 'active' : ''}`}
+          onClick={() => setActiveTab('peta_pikiran')}
+        >
+          <div className="bottom-nav-icon-bg">🧠</div>
+          <span style={{ fontSize: '0.65rem' }}>Peta Kendali</span>
+        </button>
+
+        <button
+          className={`bottom-nav-item ${activeTab === 'katarsis' ? 'active' : ''}`}
+          onClick={() => setActiveTab('katarsis')}
+        >
+          <div className="bottom-nav-icon-bg">🔥</div>
+          <span style={{ fontSize: '0.65rem' }}>Katarsis</span>
+        </button>
+
+        <button
+          className={`bottom-nav-item ${activeTab === 'analisis' ? 'active' : ''}`}
+          onClick={() => setActiveTab('analisis')}
+        >
+          <div className="bottom-nav-icon-bg">📊</div>
+          <span style={{ fontSize: '0.65rem' }}>Analisis</span>
+        </button>
+      </div>
+
     </div>
   );
 }
