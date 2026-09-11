@@ -131,28 +131,52 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
-  // --- STATE PEMETAAN KENDALI PIKIRAN ---
+  // --- STATE PETA KENDALI PIKIRAN ---
   const [newMindInput, setNewMindInput] = useState('');
   const [mindMaps, setMindMaps] = useState(() => {
     const saved = localStorage.getItem('mind_maps');
     return saved ? JSON.parse(saved) : [
       { id: 1, title: 'Kerjaan stuck', status: 'bisa' },
       { id: 2, title: 'Keuangan gak lancar', status: 'usaha' },
-      { id: 3, title: 'Ortu udah tambah tua', status: 'luar' },
-      { id: 4, title: 'Pengen punya skill lain', status: 'bisa' },
-      { id: 5, title: 'Tidur berantakan', status: 'bisa' }
+      { id: 3, title: 'Ortu udah tambah tua', status: 'luar' }
     ];
+  });
+
+  // --- STATE WISHLIST & IMPIAN ---
+  const [wishlistInput, setWishlistInput] = useState('');
+  const [wishlistCategory, setWishlistCategory] = useState('Barang');
+  const [wishlists, setWishlists] = useState(() => {
+    const saved = localStorage.getItem('app_wishlists');
+    return saved ? JSON.parse(saved) : [
+      { id: 1, title: 'Beli iPad Air M2', category: 'Barang', status: 'nabung' },
+      { id: 2, title: 'Liburan ke Jogja', category: 'Travel', status: 'belum' }
+    ];
+  });
+
+  // --- STATE KAPSUL WAKTU ---
+  const [capsuleText, setCapsuleText] = useState('');
+  const [capsuleUnlockDate, setCapsuleUnlockDate] = useState('');
+  const [capsules, setCapsules] = useState(() => {
+    const saved = localStorage.getItem('app_capsules');
+    return saved ? JSON.parse(saved) : [];
   });
 
   useEffect(() => {
     localStorage.setItem('mind_maps', JSON.stringify(mindMaps));
   }, [mindMaps]);
 
+  useEffect(() => {
+    localStorage.setItem('app_wishlists', JSON.stringify(wishlists));
+  }, [wishlists]);
+
+  useEffect(() => {
+    localStorage.setItem('app_capsules', JSON.stringify(capsules));
+  }, [capsules]);
+
   const addMindMap = (e) => {
     e.preventDefault();
     if (!newMindInput.trim()) return;
-    const newItem = { id: Date.now(), title: newMindInput, status: 'bisa' };
-    setMindMaps([...mindMaps, newItem]);
+    setMindMaps([...mindMaps, { id: Date.now(), title: newMindInput, status: 'bisa' }]);
     setNewMindInput('');
   };
 
@@ -162,6 +186,37 @@ function App() {
 
   const deleteMindMap = (id) => {
     setMindMaps(mindMaps.filter(item => item.id !== id));
+  };
+
+  const addWishlist = (e) => {
+    e.preventDefault();
+    if (!wishlistInput.trim()) return;
+    setWishlists([...wishlists, { id: Date.now(), title: wishlistInput, category: wishlistCategory, status: 'belum' }]);
+    setWishlistInput('');
+  };
+
+  const updateWishlistStatus = (id, status) => {
+    setWishlists(wishlists.map(item => item.id === id ? { ...item, status } : item));
+  };
+
+  const deleteWishlist = (id) => {
+    setWishlists(wishlists.filter(item => item.id !== id));
+  };
+
+  const addCapsule = (e) => {
+    e.preventDefault();
+    if (!capsuleText.trim() || !capsuleUnlockDate) {
+      alert("Isi pesan dan tanggal bukanya dulu ya!");
+      return;
+    }
+    setCapsules([...capsules, { id: Date.now(), text: capsuleText, unlockDate: capsuleUnlockDate, createdAt: new Date().toISOString() }]);
+    setCapsuleText('');
+    setCapsuleUnlockDate('');
+    alert("Kapsul waktu berhasil dikunci! ⏳");
+  };
+
+  const deleteCapsule = (id) => {
+    setCapsules(capsules.filter(item => item.id !== id));
   };
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -431,7 +486,6 @@ function App() {
           gap: 8px;
         }
 
-        /* BOTTOM NAVBAR MOBILE FIX */
         .bottom-nav {
           position: fixed;
           bottom: 0;
@@ -773,14 +827,148 @@ function App() {
               </>
             )}
 
+            {/* --- TAB WISHLIST & IMPIAN --- */}
+            {activeTab === 'wishlist' && (
+              <div>
+                <div className="card" style={{ textAlign: 'center' }}>
+                  <h3 style={{ margin: '0 0 6px 0', fontSize: '1.1rem' }}>🎯 Wishlist & Impian Masa Depan</h3>
+                  <p style={{ fontSize: '0.75rem', color: subTextColor, margin: 0 }}>Catat hal yang ingin kamu capai atau beli!</p>
+                </div>
+
+                <div className="card">
+                  <form onSubmit={addWishlist} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <input
+                      type="text"
+                      value={wishlistInput}
+                      onChange={(e) => setWishlistInput(e.target.value)}
+                      placeholder="Tulis impian/wishlist (misal: Beli Laptop Baru)..."
+                      style={{ padding: '10px 12px', borderRadius: '10px', border: 'none', backgroundColor: isDarkMode ? '#1B1927' : '#F4F5F9', color: textColor, fontSize: '0.8rem' }}
+                    />
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <select
+                        value={wishlistCategory}
+                        onChange={(e) => setWishlistCategory(e.target.value)}
+                        style={{ flex: 1, padding: '8px', borderRadius: '10px', border: 'none', backgroundColor: isDarkMode ? '#1B1927' : '#F4F5F9', color: textColor, fontSize: '0.8rem' }}
+                      >
+                        <option value="Barang">🛍️ Barang</option>
+                        <option value="Travel">✈️ Travel / Liburan</option>
+                        <option value="Karir">💼 Karir / Skill</option>
+                        <option value="Spiritual">🕌 Spiritual / Ibada</option>
+                      </select>
+                      <button
+                        type="submit"
+                        style={{ padding: '10px 16px', borderRadius: '10px', border: 'none', backgroundColor: primaryColor, color: '#FFF', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer' }}
+                      >
+                        + Tambah
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+                {wishlists.map((item) => (
+                  <div key={item.id} className="card" style={{ marginBottom: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <span style={{ fontSize: '0.65rem', backgroundColor: primaryColor + '33', color: primaryColor, padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>{item.category}</span>
+                        <h4 style={{ margin: '4px 0 0 0', fontSize: '0.9rem' }}>{item.title}</h4>
+                      </div>
+                      <button onClick={() => deleteWishlist(item.id)} style={{ border: 'none', background: 'none', color: '#FF5252', cursor: 'pointer', fontSize: '0.75rem' }}>✕</button>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                      <button
+                        type="button"
+                        onClick={() => updateWishlistStatus(item.id, 'belum')}
+                        style={{ padding: '6px', borderRadius: '15px', border: 'none', backgroundColor: item.status === 'belum' ? '#757575' : (isDarkMode ? '#1B1927' : '#EFEFEF'), color: item.status === 'belum' ? '#FFF' : subTextColor, fontSize: '0.65rem', cursor: 'pointer' }}
+                      >
+                        ⏳ Belum
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateWishlistStatus(item.id, 'nabung')}
+                        style={{ padding: '6px', borderRadius: '15px', border: 'none', backgroundColor: item.status === 'nabung' ? '#FF9800' : (isDarkMode ? '#1B1927' : '#EFEFEF'), color: item.status === 'nabung' ? '#FFF' : subTextColor, fontSize: '0.65rem', cursor: 'pointer' }}
+                      >
+                        🪙 Proses
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateWishlistStatus(item.id, 'tercapai')}
+                        style={{ padding: '6px', borderRadius: '15px', border: 'none', backgroundColor: item.status === 'tercapai' ? '#4CAF50' : (isDarkMode ? '#1B1927' : '#EFEFEF'), color: item.status === 'tercapai' ? '#FFF' : subTextColor, fontSize: '0.65rem', cursor: 'pointer' }}
+                      >
+                        🎉 Terwujud!
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* --- TAB KAPSUL WAKTU --- */}
+            {activeTab === 'kapsul' && (
+              <div>
+                <div className="card" style={{ textAlign: 'center' }}>
+                  <h3 style={{ margin: '0 0 6px 0', fontSize: '1.1rem' }}>⏳ Kapsul Waktu Masa Depan</h3>
+                  <p style={{ fontSize: '0.75rem', color: subTextColor, margin: 0 }}>Kirim pesan untuk dirimu sendiri yang baru bisa dibuka di tanggal tertentu.</p>
+                </div>
+
+                <div className="card">
+                  <form onSubmit={addCapsule} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <textarea
+                      rows="3"
+                      value={capsuleText}
+                      onChange={(e) => setCapsuleText(e.target.value)}
+                      placeholder="Pesan untuk dirimu di masa depan..."
+                      style={{ width: '100%', padding: '10px', borderRadius: '8px', border: 'none', backgroundColor: isDarkMode ? '#1B1927' : '#F4F5F9', color: textColor, fontSize: '0.8rem' }}
+                    />
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.75rem', color: subTextColor }}>Buka Tanggal:</span>
+                      <input
+                        type="date"
+                        value={capsuleUnlockDate}
+                        onChange={(e) => setCapsuleUnlockDate(e.target.value)}
+                        style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', backgroundColor: isDarkMode ? '#1B1927' : '#F4F5F9', color: textColor, fontSize: '0.8rem' }}
+                      />
+                      <button
+                        type="submit"
+                        style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', backgroundColor: primaryColor, color: '#FFF', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer' }}
+                      >
+                        🔒 Kunci
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+                {capsules.map((item) => {
+                  const isUnlocked = new Date() >= new Date(item.unlockDate);
+                  return (
+                    <div key={item.id} className="card" style={{ marginBottom: '10px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <span style={{ fontSize: '0.7rem', color: subTextColor }}>📅 Dibuka: {new Date(item.unlockDate).toLocaleDateString('id-ID')}</span>
+                        <button onClick={() => deleteCapsule(item.id)} style={{ border: 'none', background: 'none', color: '#FF5252', cursor: 'pointer', fontSize: '0.75rem' }}>🗑️ Hapus</button>
+                      </div>
+
+                      {isUnlocked ? (
+                        <div style={{ padding: '10px', backgroundColor: primaryColor + '22', borderRadius: '8px', fontSize: '0.85rem' }}>
+                          <strong>🔓 Pesan Terbuka:</strong>
+                          <p style={{ margin: '4px 0 0 0' }}>{item.text}</p>
+                        </div>
+                      ) : (
+                        <div style={{ textAlign: 'center', padding: '15px', backgroundColor: isDarkMode ? '#1B1927' : '#EFEFEF', borderRadius: '8px', color: subTextColor, fontSize: '0.8rem' }}>
+                          🔒 Pesan ini masih terkunci sampai {new Date(item.unlockDate).toLocaleDateString('id-ID')}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             {/* --- TAB PEMETAAN PIKIRAN & KENDALI --- */}
             {activeTab === 'peta_pikiran' && (
               <div>
                 <div className="card" style={{ textAlign: 'center' }}>
                   <h3 style={{ margin: '0 0 6px 0', fontSize: '1.1rem' }}>🧠 Memetakan Emosi & Pikiran</h3>
-                  <p style={{ fontSize: '0.75rem', color: subTextColor, margin: 0 }}>
-                    Kelompokkan beban pikiranmu agar kamu tahu mana yang bisa diubah dan mana yang perlu dilepaskan.
-                  </p>
+                  <p style={{ fontSize: '0.75rem', color: subTextColor, margin: 0 }}>Kelompokkan beban pikiranmu agar kamu tahu mana yang bisa diubah dan mana yang perlu dilepaskan.</p>
                 </div>
 
                 <div className="card">
@@ -789,29 +977,12 @@ function App() {
                       type="text"
                       value={newMindInput}
                       onChange={(e) => setNewMindInput(e.target.value)}
-                      placeholder="Tulis beban pikiran/masalah (misal: Keuangan gak lancar)..."
-                      style={{
-                        flex: 1,
-                        padding: '10px 12px',
-                        borderRadius: '10px',
-                        border: 'none',
-                        backgroundColor: isDarkMode ? '#1B1927' : '#F4F5F9',
-                        color: textColor,
-                        fontSize: '0.8rem'
-                      }}
+                      placeholder="Tulis beban pikiran/masalah..."
+                      style={{ flex: 1, padding: '10px 12px', borderRadius: '10px', border: 'none', backgroundColor: isDarkMode ? '#1B1927' : '#F4F5F9', color: textColor, fontSize: '0.8rem' }}
                     />
                     <button
                       type="submit"
-                      style={{
-                        padding: '10px 16px',
-                        borderRadius: '10px',
-                        border: 'none',
-                        backgroundColor: primaryColor,
-                        color: '#FFF',
-                        fontWeight: 'bold',
-                        fontSize: '0.8rem',
-                        cursor: 'pointer'
-                      }}
+                      style={{ padding: '10px 16px', borderRadius: '10px', border: 'none', backgroundColor: primaryColor, color: '#FFF', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer' }}
                     >
                       + Tambah
                     </button>
@@ -819,123 +990,37 @@ function App() {
                 </div>
 
                 {mindMaps.map((item) => (
-                  <div
-                    key={item.id}
-                    className="card"
-                    style={{
-                      marginBottom: '10px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '10px'
-                    }}
-                  >
+                  <div key={item.id} className="card" style={{ marginBottom: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{item.title}</span>
-                      <button
-                        onClick={() => deleteMindMap(item.id)}
-                        style={{ border: 'none', background: 'none', color: '#FF5252', cursor: 'pointer', fontSize: '0.75rem' }}
-                      >
-                        ✕ Hapus
-                      </button>
+                      <button onClick={() => deleteMindMap(item.id)} style={{ border: 'none', background: 'none', color: '#FF5252', cursor: 'pointer', fontSize: '0.75rem' }}>✕ Hapus</button>
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
                       <button
                         type="button"
                         onClick={() => updateMindStatus(item.id, 'bisa')}
-                        style={{
-                          padding: '8px 4px',
-                          borderRadius: '20px',
-                          border: item.status === 'bisa' ? '2px solid #4CAF50' : 'none',
-                          backgroundColor: item.status === 'bisa' ? '#4CAF50' : (isDarkMode ? '#1B1927' : '#EFEFEF'),
-                          color: item.status === 'bisa' ? '#FFF' : subTextColor,
-                          fontSize: '0.65rem',
-                          fontWeight: 'bold',
-                          cursor: 'pointer'
-                        }}
+                        style={{ padding: '8px 4px', borderRadius: '20px', border: 'none', backgroundColor: item.status === 'bisa' ? '#4CAF50' : (isDarkMode ? '#1B1927' : '#EFEFEF'), color: item.status === 'bisa' ? '#FFF' : subTextColor, fontSize: '0.65rem', fontWeight: 'bold', cursor: 'pointer' }}
                       >
                         Bisa kukerjakan
                       </button>
-
                       <button
                         type="button"
                         onClick={() => updateMindStatus(item.id, 'usaha')}
-                        style={{
-                          padding: '8px 4px',
-                          borderRadius: '20px',
-                          border: item.status === 'usaha' ? '2px solid #FF9800' : 'none',
-                          backgroundColor: item.status === 'usaha' ? '#FF9800' : (isDarkMode ? '#1B1927' : '#EFEFEF'),
-                          color: item.status === 'usaha' ? '#FFF' : subTextColor,
-                          fontSize: '0.65rem',
-                          fontWeight: 'bold',
-                          cursor: 'pointer'
-                        }}
+                        style={{ padding: '8px 4px', borderRadius: '20px', border: 'none', backgroundColor: item.status === 'usaha' ? '#FF9800' : (isDarkMode ? '#1B1927' : '#EFEFEF'), color: item.status === 'usaha' ? '#FFF' : subTextColor, fontSize: '0.65rem', fontWeight: 'bold', cursor: 'pointer' }}
                       >
                         Perlu usaha lebih
                       </button>
-
                       <button
                         type="button"
                         onClick={() => updateMindStatus(item.id, 'luar')}
-                        style={{
-                          padding: '8px 4px',
-                          borderRadius: '20px',
-                          border: item.status === 'luar' ? '2px solid #E53935' : 'none',
-                          backgroundColor: item.status === 'luar' ? '#E53935' : (isDarkMode ? '#1B1927' : '#EFEFEF'),
-                          color: item.status === 'luar' ? '#FFF' : subTextColor,
-                          fontSize: '0.65rem',
-                          fontWeight: 'bold',
-                          cursor: 'pointer'
-                        }}
+                        style={{ padding: '8px 4px', borderRadius: '20px', border: 'none', backgroundColor: item.status === 'luar' ? '#E53935' : (isDarkMode ? '#1B1927' : '#EFEFEF'), color: item.status === 'luar' ? '#FFF' : subTextColor, fontSize: '0.65rem', fontWeight: 'bold', cursor: 'pointer' }}
                       >
                         Di luar kendaliku
                       </button>
                     </div>
                   </div>
                 ))}
-              </div>
-            )}
-
-            {activeTab === 'mind' && (
-              <div className="card" style={{ textAlign: 'center', padding: '30px 20px' }}>
-                <h3>🧘 Mind Gym & Afirmasi Positif</h3>
-                <blockquote style={{ fontStyle: 'italic', fontSize: '1rem', color: primaryColor, margin: '20px 0' }}>
-                  {isIslami
-                    ? '"Cukuplah Allah bagiku, tidak ada Tuhan selain Dia. Hanya kepada-Nya aku bertawakal."'
-                    : '"Saya menghargai setiap proses kecil dalam hidup saya hari ini. Saya tenang dan cukup."'
-                  }
-                </blockquote>
-              </div>
-            )}
-
-            {activeTab === 'napas' && (
-              <div className="card" style={{ textAlign: 'center', padding: '30px 20px' }}>
-                <h3>🫁 Teknik Relaksasi Napas 4-7-8</h3>
-                <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: primaryColor, margin: '20px 0' }}>
-                  {breathPhase}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsBreathing(true);
-                    setBreathPhase('Tarik Napas... (4 Detik)');
-                    setTimeout(() => {
-                      setBreathPhase('Tahan Napas... (7 Detik)');
-                      setTimeout(() => {
-                        setBreathPhase('Hembuskan... (8 Detik)');
-                        setTimeout(() => {
-                          setBreathPhase('Selesai ✨');
-                          setIsBreathing(false);
-                        }, 8000);
-                      }, 7000);
-                    }, 4000);
-                  }}
-                  disabled={isBreathing}
-                  className="badge"
-                  style={{ backgroundColor: primaryColor, color: '#FFF', padding: '12px 24px' }}
-                >
-                  {isBreathing ? 'Sedang Berjalan...' : 'Mulai Latihan Napas 🌬️'}
-                </button>
               </div>
             )}
 
@@ -1092,36 +1177,29 @@ function App() {
 
       {/* --- BOTTOM NAVBAR MOBILE FIXED --- */}
       <div className="bottom-nav">
-        <button
-          className={`bottom-nav-item ${activeTab === 'jurnal' ? 'active' : ''}`}
-          onClick={() => setActiveTab('jurnal')}
-        >
+        <button className={`bottom-nav-item ${activeTab === 'jurnal' ? 'active' : ''}`} onClick={() => setActiveTab('jurnal')}>
           <div className="bottom-nav-icon-bg">📝</div>
-          <span style={{ fontSize: '0.65rem' }}>Jurnal</span>
+          <span style={{ fontSize: '0.6rem' }}>Jurnal</span>
         </button>
 
-        <button
-          className={`bottom-nav-item ${activeTab === 'peta_pikiran' ? 'active' : ''}`}
-          onClick={() => setActiveTab('peta_pikiran')}
-        >
+        <button className={`bottom-nav-item ${activeTab === 'peta_pikiran' ? 'active' : ''}`} onClick={() => setActiveTab('peta_pikiran')}>
           <div className="bottom-nav-icon-bg">🧠</div>
-          <span style={{ fontSize: '0.65rem' }}>Peta Kendali</span>
+          <span style={{ fontSize: '0.6rem' }}>Kendali</span>
         </button>
 
-        <button
-          className={`bottom-nav-item ${activeTab === 'katarsis' ? 'active' : ''}`}
-          onClick={() => setActiveTab('katarsis')}
-        >
-          <div className="bottom-nav-icon-bg">🔥</div>
-          <span style={{ fontSize: '0.65rem' }}>Katarsis</span>
+        <button className={`bottom-nav-item ${activeTab === 'wishlist' ? 'active' : ''}`} onClick={() => setActiveTab('wishlist')}>
+          <div className="bottom-nav-icon-bg">🎯</div>
+          <span style={{ fontSize: '0.6rem' }}>Wishlist</span>
         </button>
 
-        <button
-          className={`bottom-nav-item ${activeTab === 'analisis' ? 'active' : ''}`}
-          onClick={() => setActiveTab('analisis')}
-        >
+        <button className={`bottom-nav-item ${activeTab === 'kapsul' ? 'active' : ''}`} onClick={() => setActiveTab('kapsul')}>
+          <div className="bottom-nav-icon-bg">⏳</div>
+          <span style={{ fontSize: '0.6rem' }}>Kapsul</span>
+        </button>
+
+        <button className={`bottom-nav-item ${activeTab === 'analisis' ? 'active' : ''}`} onClick={() => setActiveTab('analisis')}>
           <div className="bottom-nav-icon-bg">📊</div>
-          <span style={{ fontSize: '0.65rem' }}>Analisis</span>
+          <span style={{ fontSize: '0.6rem' }}>Analisis</span>
         </button>
       </div>
 
