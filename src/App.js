@@ -250,8 +250,7 @@ function App() {
   const [reminderTime, setReminderTime] = useState(localStorage.getItem('reminder_time') || '20:00');
   const [showHistory, setShowHistory] = useState(true);
 
-  const [breathPhase, setBreathPhase] = useState('Tekan Mulai untuk Latihan Napas');
-  const [isBreathing, setIsBreathing] = useState(false);
+  
   const [burnText, setBurnText] = useState('');
 
   const [checklist, setChecklist] = useState({
