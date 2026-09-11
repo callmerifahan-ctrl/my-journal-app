@@ -250,7 +250,6 @@ function App() {
   const [reminderTime, setReminderTime] = useState(localStorage.getItem('reminder_time') || '20:00');
   const [showHistory, setShowHistory] = useState(true);
 
-  
   const [burnText, setBurnText] = useState('');
 
   const [checklist, setChecklist] = useState({
@@ -509,6 +508,31 @@ function App() {
           gap: 8px;
         }
 
+        /* --- STYLES MENU NAVIGASI BARU --- */
+        .tab-menu-bar {
+          display: flex;
+          gap: 8px;
+          overflow-x: auto;
+          padding-bottom: 8px;
+          margin-bottom: 14px;
+          scrollbar-width: none;
+        }
+
+        .tab-menu-bar::-webkit-scrollbar {
+          display: none;
+        }
+
+        .tab-btn {
+          padding: 8px 14px;
+          border-radius: 20px;
+          font-size: 0.8rem;
+          border: none;
+          cursor: pointer;
+          white-space: nowrap;
+          font-weight: bold;
+          transition: 0.2s;
+        }
+
         .bottom-nav {
           position: fixed;
           bottom: 0;
@@ -598,6 +622,31 @@ function App() {
           >
             🕌 Mode Islami
           </button>
+        </div>
+
+        {/* --- MENU TAB NAVIGASI BARU (BISA DIGULIR KANAN-KIRI) --- */}
+        <div className="tab-menu-bar">
+          {[
+            { id: 'jurnal', label: '📝 Jurnal' },
+            { id: 'peta_pikiran', label: '🧠 Peta Kendali' },
+            { id: 'wishlist', label: '🎯 Wishlist' },
+            { id: 'kapsul', label: '⏳ Kapsul Waktu' },
+            { id: 'momen', label: '📸 Momen Manis' },
+            { id: 'katarsis', label: '🔥 Katarsis' },
+            { id: 'analisis', label: '📊 Analisis' }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className="tab-btn"
+              style={{
+                backgroundColor: activeTab === tab.id ? primaryColor : cardBg,
+                color: activeTab === tab.id ? '#FFF' : textColor
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         <div className="main-grid">
